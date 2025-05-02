@@ -1,0 +1,175 @@
+"use client"
+
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CommunityMap from '@/components/onboarding/community-map';
+import CommunityList from '@/components/onboarding/community-list';
+import { MapPin, Users } from 'lucide-react';
+
+export default function CommunitySelectionPage() {
+  const router = useRouter();
+  const [, setTab] = useState('join');
+  const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
+  const [drawingBoundary, setDrawingBoundary] = useState(false);
+  const [communityName, setCommunityName] = useState('');
+  
+  const handleJoinCommunity = () => {
+    if (!selectedCommunity) {
+   
+      toast.warning("No community selected",{
+        description:  "Please select a community to join.",
+      });
+      return;
+    }
+    
+    // Simulate successful community join
+  
+    
+    toast.warning("Community joined!",{
+      description:  "You've successfully joined the community.",
+    });
+    router.push('/dashboard');
+  };
+  
+  const handleCreateCommunity = () => {
+    if (!communityName) {
+      
+
+      toast.warning("Community joined!",{
+        description:  "Please provide a name for your new community.",
+      });
+      return;
+    }
+    
+    if (!drawingBoundary) {
+    
+
+      toast.warning("Community boundary required",{
+        description:  "Please draw a boundary for your community on the map.",
+      });
+      return;
+    }
+    
+    // Simulate successful community creation
+   
+    toast.success("Community created!",{
+      description:  `You've successfully created the community "${communityName}`,
+    });
+    
+    router.push('/dashboard');
+  };
+
+  return (
+    <div className="container max-w-5xl py-8 space-y-8">
+      <div className="text-center space-y-4">
+        <h1 className="text-3xl font-bold">Choose Your Community</h1>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Join an existing community in your area or create a new one to start making an impact.
+        </p>
+      </div>
+      
+      <Tabs defaultValue="join" className="w-full" onValueChange={setTab}>
+        <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto">
+          <TabsTrigger value="join" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Join Existing
+          </TabsTrigger>
+          <TabsTrigger value="create" className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Create New
+          </TabsTrigger>
+        </TabsList>
+        
+        <div className="mt-6">
+          <TabsContent value="join" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Join an Existing Community</CardTitle>
+                <CardDescription>
+                  Select a community from the list or find one on the map
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <CommunityMap 
+                    joinMode={true} 
+                    onSelectCommunity={setSelectedCommunity}
+                    selectedCommunity={selectedCommunity}
+                  />
+                  <CommunityList 
+                    onSelectCommunity={setSelectedCommunity}
+                    selectedCommunity={selectedCommunity}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleJoinCommunity}
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+                >
+                  Join Selected Community
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="create" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create a New Community</CardTitle>
+                <CardDescription>
+                  Name your community and draw its boundaries on the map
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="community-name" className="text-sm font-medium">
+                    Community Name
+                  </label>
+                  <input
+                    id="community-name"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="e.g., Green Valley Community"
+                    value={communityName}
+                    onChange={(e) => setCommunityName(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Community Boundaries</label>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setDrawingBoundary(!drawingBoundary)}
+                      className={drawingBoundary ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}
+                    >
+                      {drawingBoundary ? "Finish Drawing" : "Draw Boundary"}
+                    </Button>
+                  </div>
+                  <CommunityMap 
+                    joinMode={false} 
+                    drawingMode={drawingBoundary}
+                    onFinishDrawing={() => setDrawingBoundary(false)}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleCreateCommunity}
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+                >
+                  Create Community
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+}
