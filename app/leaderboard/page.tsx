@@ -72,7 +72,7 @@ export default function LeaderboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Leaderboard</h1>
         <p className="text-muted-foreground">
-          See who's making the biggest impact in trash collection
+          See who&apos;s making the biggest impact in trash collection
         </p>
       </div>
       

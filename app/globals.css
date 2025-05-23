@@ -3,8 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,17 +42,25 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-
-
   --keyframes-accordion-down: {
-    from: { height: "0" },
-    to: { height: "var(--radix-accordion-content-height)" }
-  };
+    from: {
+      height: "0";
+    }
+    ,
+    to: {
+      height: "var(--radix-accordion-content-height)";
+    }
+  }
 
   --keyframes-accordion-up: {
-    from: { height: "var(--radix-accordion-content-height)" },
-    to: { height: "0" }
-  };
+    from: {
+      height: "var(--radix-accordion-content-height)";
+    }
+    ,
+    to: {
+      height: "0";
+    }
+  }
 
   /* --keyframes-fade-in: {
     from: { opacity: "0" },
@@ -75,14 +81,11 @@
   }; */
 
   --animation-accordion-down: {
-    animation: "var(--keyframes-accordion-down) 0.2s ease-out"
-  };
+    animation: "var(--keyframes-accordion-down) 0.2s ease-out";
+  }
   --animation-accordion-up: {
-    animation: "var(--keyframes-accordion-up) 0.2s ease-out"
-  };
-
-
-  
+    animation: "var(--keyframes-accordion-up) 0.2s ease-out";
+  }
 }
 
 :root {
@@ -144,8 +147,8 @@
   --chart-5: hsl(340 75% 55%);
 
   --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
 }
 
 @layer utilities {
@@ -158,11 +161,28 @@
   }
 
   .map-container {
-    height: 300px;
     width: 100%;
+    height: 300px;
     border-radius: var(--radius);
   }
-  
+
+  .mapboxgl-map {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius);
+  }
+
+  .mapboxgl-popup {
+    @apply max-w-[200px];
+  }
+
+  .mapboxgl-popup-content {
+    @apply bg-card text-card-foreground p-3 rounded-lg shadow-lg border;
+  }
+
+  .mapboxgl-popup-close-button {
+    @apply text-muted-foreground hover:text-foreground;
+  }
 }
 
 @layer base {

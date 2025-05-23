@@ -11,8 +11,10 @@ import { Camera, Loader2,
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { motion } from '@/lib/framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import TrashAnalysisResult from '@/components/pickup/trash-analysis-result';
 import {  toast } from 'sonner';
+import Image from 'next/image';
 
 export default function NewPickupPage() {
   const router = useRouter();
@@ -113,7 +115,7 @@ export default function NewPickupPage() {
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">Record Trash Pickup</h1>
         <p className="text-muted-foreground">
-          Take photos of the trash you've collected
+          Take photos of the trash you&apos;ve collected
         </p>
       </div>
       
@@ -144,7 +146,9 @@ export default function NewPickupPage() {
                   <div key={index} className="relative aspect-square rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden bg-muted/30">
                     {images[index] ? (
                       <>
-                        <img 
+                        <Image 
+                        width={500}
+                        height={500}
                           src={images[index]} 
                           alt={`Trash photo ${index + 1}`} 
                           className="absolute inset-0 w-full h-full object-cover"
@@ -189,9 +193,11 @@ export default function NewPickupPage() {
                     transition={{ duration: 0.2, delay: index * 0.1 }}
                     className="aspect-square rounded-md overflow-hidden"
                   >
-                    <img 
+                    <Image 
                       src={image} 
                       alt={`Trash photo ${index + 1}`} 
+                        width={500}
+                        height={500}
                       className="w-full h-full object-cover"
                     />
                   </motion.div>

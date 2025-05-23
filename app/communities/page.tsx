@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, MapPin, Users, Trash2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from '@/lib/framer-motion';
+import Image from 'next/image';
 
 // Sample data
 const COMMUNITIES = [
@@ -106,9 +107,11 @@ export default function CommunitiesPage() {
           >
             <Card className="overflow-hidden h-full flex flex-col">
               <div className="relative h-36">
-                <img 
+                <Image 
                   src={community.image} 
                   alt={community.name} 
+                  width={500}
+                    height={200}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
