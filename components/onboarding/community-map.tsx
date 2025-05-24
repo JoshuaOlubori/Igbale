@@ -84,7 +84,7 @@ export default function CommunityMap({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/satellite-streets-v12",
+      style: env.NEXT_PUBLIC_MAPBOX_STYLE,
       center: [lng, lat],
       zoom: zoom
     });
