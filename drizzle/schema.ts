@@ -6,9 +6,9 @@ import {
   jsonb,
   integer,
   unique,
-  numeric,
+  real,
   varchar,
-  index,
+  index
 } from "drizzle-orm/pg-core";
 
 // Shared timestamp fields
@@ -23,9 +23,10 @@ export const CommunitiesTable = pgTable(
   {
     id,
     name: varchar("name", { length: 255 }).notNull().unique(),
-    location: varchar("location", { length: 255 }),
+    location: varchar("location", { length: 255 }).notNull(),
     description: text("description"),
-    boundary: jsonb("boundary"), // Using JSONB for GeoJSON or similar structure
+    point_location: jsonb("point_location").notNull(), // Using JSONB for GeoJSON or similar structure
+    radius: real("radius").notNull().default(0), 
     createdAt,
   },
   (table) => {
@@ -72,7 +73,7 @@ export const PickupsTable = pgTable(
       .array()
       .notNull()
       .default([]), // Array of VARCHAR
-    estimated_weight: numeric("estimated_weight").notNull().default("0"), // NUMERIC for decimal weight
+    estimated_weight: real("estimated_weight").notNull().default(0), // REAL for decimal weight
     trash_type: varchar("trash_type", { length: 255 }).notNull(),
     points_earned: integer("points_earned").notNull().default(0),
     reported_at: timestamp("reported_at", { withTimezone: true })

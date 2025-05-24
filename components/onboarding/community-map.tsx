@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { env } from '@/data/env/client';
+import { env } from "@/data/env/client";
 // Set your Mapbox access token here
 mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -34,29 +34,29 @@ const dummyCommunities: Community[] = [
     name: "Victoria Island Green Initiative",
     location: { lat: 6.4281, lng: 3.4219 },
     radius: 1000,
-    memberCount: 45
+    memberCount: 45,
   },
   {
     id: "2",
     name: "Ikoyi Sustainability Hub",
     location: { lat: 6.4498, lng: 3.4343 },
     radius: 1500,
-    memberCount: 32
+    memberCount: 32,
   },
   {
     id: "3",
     name: "Lekki Eco Warriors",
     location: { lat: 6.4698, lng: 3.5852 },
     radius: 800,
-    memberCount: 28
+    memberCount: 28,
   },
   {
     id: "4",
     name: "Mainland Climate Action",
     location: { lat: 6.5244, lng: 3.3792 },
     radius: 1200,
-    memberCount: 51
-  }
+    memberCount: 51,
+  },
 ];
 
 export default function CommunityMap({
@@ -65,28 +65,32 @@ export default function CommunityMap({
   selectedCommunity,
   onLocationSelect,
   radius = 1000,
-  onRadiusChange
+  onRadiusChange,
 }: CommunityMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [lng, setLng] = useState(3.3792); // Lagos, Nigeria longitude
   const [lat, setLat] = useState(6.5244); // Lagos, Nigeria latitude
   const [zoom, setZoom] = useState(11);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const circleLayerId = useRef<string | null>(null);
+  const currentMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   // Initialize map
   useEffect(() => {
     if (map.current) return; // Initialize map only once
-    
+
     if (!mapContainer.current) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: env.NEXT_PUBLIC_MAPBOX_STYLE,
       center: [lng, lat],
-      zoom: zoom
+      zoom: zoom,
     });
 
     map.current.on("move", () => {
@@ -113,21 +117,25 @@ export default function CommunityMap({
     if (!map.current || !joinMode) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
     // Add community markers and circles
-    dummyCommunities.forEach(community => {
+    dummyCommunities.forEach((community) => {
       if (!map.current) return;
 
       // Create marker element
       const markerElement = document.createElement("div");
-      markerElement.className = `community-marker ${selectedCommunity === community.id ? "selected" : ""}`;
+      markerElement.className = `community-marker ${
+        selectedCommunity === community.id ? "selected" : ""
+      }`;
       markerElement.style.cssText = `
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: ${selectedCommunity === community.id ? "#10562a" : "#16a34a"};
+        background: ${
+          selectedCommunity === community.id ? "#10562a" : "#16a34a"
+        };
         border: 3px solid white;
         box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         cursor: pointer;
@@ -142,7 +150,7 @@ export default function CommunityMap({
       markerElement.textContent = community.memberCount.toString();
 
       // Add hover effect
-    markerElement.addEventListener("mouseenter", () => {
+      markerElement.addEventListener("mouseenter", () => {
         markerElement.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)";
         markerElement.style.zIndex = "1000";
       });
@@ -187,9 +195,9 @@ export default function CommunityMap({
               properties: {},
               geometry: {
                 type: "Point",
-                coordinates: [community.location.lng, community.location.lat]
-              }
-            }
+                coordinates: [community.location.lng, community.location.lat],
+              },
+            },
           });
 
           map.current!.addLayer({
@@ -200,16 +208,18 @@ export default function CommunityMap({
               "circle-radius": {
                 stops: [
                   [0, 0],
-                  [20, community.radius / 10]
+                  [20, community.radius / 10],
                 ],
-                base: 2
+                base: 2,
               },
-              "circle-color": selectedCommunity === community.id ? "#16a34a" : "#22c55e",
+              "circle-color":
+                selectedCommunity === community.id ? "#16a34a" : "#22c55e",
               "circle-opacity": selectedCommunity === community.id ? 0.3 : 0.2,
               "circle-stroke-width": 2,
-              "circle-stroke-color": selectedCommunity === community.id ? "#16a34a" : "#22c55e",
-              "circle-stroke-opacity": 0.8
-            }
+              "circle-stroke-color":
+                selectedCommunity === community.id ? "#16a34a" : "#22c55e",
+              "circle-stroke-opacity": 0.8,
+            },
           });
         }
       });
@@ -224,6 +234,28 @@ export default function CommunityMap({
       const { lng, lat } = e.lngLat;
       setSelectedLocation({ lat, lng });
       onLocationSelect?.({ lat, lng });
+
+      // Remove existing marker if any
+      if (currentMarkerRef.current) {
+        currentMarkerRef.current.remove();
+      }
+
+      // Create new marker
+      const markerElement = document.createElement("div");
+      markerElement.style.cssText = `
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        border: 3px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      `;
+
+      const newMarker = new mapboxgl.Marker(markerElement)
+        .setLngLat([lng, lat])
+        .addTo(map.current!);
+
+      currentMarkerRef.current = newMarker;
     };
 
     map.current.on("click", handleMapClick);
@@ -231,6 +263,9 @@ export default function CommunityMap({
     return () => {
       if (map.current) {
         map.current.off("click", handleMapClick);
+      }
+      if (currentMarkerRef.current) {
+        currentMarkerRef.current.remove();
       }
     };
   }, [joinMode, onLocationSelect]);
@@ -262,9 +297,9 @@ export default function CommunityMap({
           properties: {},
           geometry: {
             type: "Point",
-            coordinates: [selectedLocation.lng, selectedLocation.lat]
-          }
-        }
+            coordinates: [selectedLocation.lng, selectedLocation.lat],
+          },
+        },
       });
     } else {
       const source = map.current.getSource(sourceId) as mapboxgl.GeoJSONSource;
@@ -273,8 +308,8 @@ export default function CommunityMap({
         properties: {},
         geometry: {
           type: "Point",
-          coordinates: [selectedLocation.lng, selectedLocation.lat]
-        }
+          coordinates: [selectedLocation.lng, selectedLocation.lat],
+        },
       });
     }
 
@@ -286,48 +321,34 @@ export default function CommunityMap({
         "circle-radius": {
           stops: [
             [0, 0],
-            [20, radius / 10]
+            [20, radius / 10],
           ],
-          base: 2
+          base: 2,
         },
         "circle-color": "#3b82f6",
         "circle-opacity": 0.3,
         "circle-stroke-width": 2,
         "circle-stroke-color": "#3b82f6",
-        "circle-stroke-opacity": 0.8
-      }
+        "circle-stroke-opacity": 0.8,
+      },
     });
-
-    // Add center marker
-    const markerElement = document.createElement("div");
-    markerElement.style.cssText = `
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #3b82f6;
-      border: 3px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    `;
-
-    new mapboxgl.Marker(markerElement)
-      .setLngLat([selectedLocation.lng, selectedLocation.lat])
-      .addTo(map.current);
-
   }, [selectedLocation, radius, joinMode]);
 
   return (
     <div className="space-y-4">
       <div className="relative">
-        <div 
-          ref={mapContainer} 
+        <div
+          ref={mapContainer}
           className="h-96 w-full rounded-lg border"
           style={{ minHeight: "400px" }}
         />
-        
+
         {/* Map info overlay */}
         <div className="absolute top-2 right-10 bg-white/120 backdrop-blur-sm rounded-lg px-3 py-2 text-sm shadow-md">
           <div className="space-y-1">
-            <div>Lng: {lng} | Lat: {lat}</div>
+            <div>
+              Lng: {lng} | Lat: {lat}
+            </div>
             <div>Zoom: {zoom}</div>
           </div>
         </div>
@@ -371,7 +392,8 @@ export default function CommunityMap({
             Selected Location
           </p>
           <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-            Lat: {selectedLocation.lat.toFixed(6)}, Lng: {selectedLocation.lng.toFixed(6)}
+            Lat: {selectedLocation.lat.toFixed(6)}, Lng:{" "}
+            {selectedLocation.lng.toFixed(6)}
           </p>
           <p className="text-xs text-blue-600 dark:text-blue-300">
             Radius: {radius}m

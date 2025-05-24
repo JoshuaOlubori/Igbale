@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 // import { Card, CardContent } from '@/components/ui/card';
+import { SignUpButton } from "@clerk/nextjs"
 import HeroSection from '@/components/home/hero-section';
 import FeatureSection from '@/components/home/feature-section';
 import StatsSection from '@/components/home/stats-section';
@@ -31,11 +32,14 @@ export default function Home() {
             Make a difference in your local environment while having fun and earning rewards.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button asChild size="lg" className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white">
-              <Link href="/register">
+            <SignUpButton >
+            <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white">
+             
                 Get Started
-              </Link>
+             
             </Button>
+              </SignUpButton>
+
             <Button asChild variant="outline" size="lg">
               <Link href="/about">
                 Learn More

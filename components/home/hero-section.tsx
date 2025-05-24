@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { SignUpButton } from '@clerk/nextjs';
 
 export default function HeroSection() {
   return (
@@ -21,11 +22,13 @@ export default function HeroSection() {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-medium px-8 py-3 rounded-lg">
-                <Link href="/register">
+              <SignUpButton>  
+              <Button className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-medium px-8 py-3 rounded-lg">
+             
                   Join Now
-                </Link>
+               
               </Button>
+              </SignUpButton>
               <Button asChild variant="outline" className="group">
                 <Link href="/about">
                   Learn How It Works

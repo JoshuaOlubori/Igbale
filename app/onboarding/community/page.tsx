@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CommunityMap from "@/components/onboarding/community-map";
 import CommunityList from "@/components/onboarding/community-list";
 import { MapPin, Users } from "lucide-react";
+import { createCommunity } from "@/server/actions/communities";
+import { getReverseGeocode } from "@/lib/utils";
 
 export default function CommunitySelectionPage() {
   const router = useRouter();
@@ -23,13 +25,16 @@ export default function CommunitySelectionPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null
   );
-  const [drawingBoundary, setDrawingBoundary] = useState(false);
+  // const [drawingBoundary, setDrawingBoundary] = useState(false);
   const [communityName, setCommunityName] = useState("");
   const [communityLocation, setCommunityLocation] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
   const [communityRadius, setCommunityRadius] = useState(1);
+  const [communityDescription, setCommunityDescription] = useState("");
+  const [communityAddress, setCommunityAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleJoinCommunity = () => {
     if (!selectedCommunity) {
@@ -47,27 +52,59 @@ export default function CommunitySelectionPage() {
     router.push("/dashboard");
   };
 
-  const handleCreateCommunity = () => {
-    if (!communityName) {
-      toast.warning("Community name required", {
-        description: "Please provide a name for your new community.",
+  // const getReverseGeocode = async (lat: number, lng: number) => {
+  //   try {
+  //     const response = await fetch(
+  //       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+  //     );
+  //     const data = await response.json();
+  //     return data.features[0]?.place_name || "";
+  //   } catch (error) {
+  //     console.error("Error getting address:", error);
+  //     return "";
+  //   }
+  // };
+
+  const handleCreateCommunity = async () => {
+    if (!communityName || !communityLocation) {
+      toast.warning("Required fields missing", {
+        description: "Please provide all required information.",
       });
       return;
     }
 
-    if (!communityLocation) {
-      toast.warning("Location required", {
-        description: "Please select a location for your community on the map.",
+    setIsLoading(true);
+    try {
+      // Get address if not already set
+      const address =
+        communityAddress ||
+        (await getReverseGeocode(communityLocation.lat, communityLocation.lng));
+
+      const result = await createCommunity({
+        name: communityName,
+        location: address,
+        description: communityDescription,
+        point_location: communityLocation,
+        radius: communityRadius * 1000, // Convert to meters
       });
-      return;
+
+      if (result?.error) {
+        toast.error("Error", {
+          description: result.message,
+        });
+      } else {
+        toast.success("Community created!", {
+          description: `You've successfully created the community "${communityName}"`,
+        });
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      toast.error("Error", {
+        description: `Error: ${error}: Failed to create community. Please try again.`,
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    // Simulate successful community creation
-    toast.success("Community created!", {
-      description: `You've successfully created the community "${communityName}"`,
-    });
-
-    router.push("/dashboard");
   };
 
   return (
@@ -151,23 +188,41 @@ export default function CommunitySelectionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">
-                      Community Location
-                    </label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDrawingBoundary(!drawingBoundary)}
-                      className={
-                        drawingBoundary
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : ""
-                      }
-                    >
-                      {drawingBoundary ? "Finish Drawing" : "Draw Boundary"}
-                    </Button>
-                  </div>
+                  <label
+                    htmlFor="community-description"
+                    className="text-sm font-medium"
+                  >
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    id="community-description"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Describe your community..."
+                    value={communityDescription}
+                    onChange={(e) => setCommunityDescription(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="community-address"
+                    className="text-sm font-medium"
+                  >
+                    Address
+                  </label>
+                  <input
+                    id="community-address"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Address will be auto-filled when location is selected"
+                    value={communityAddress}
+                    onChange={(e) => setCommunityAddress(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Community Location
+                  </label>
                   <CommunityMap
                     joinMode={false}
                     onLocationSelect={setCommunityLocation}
@@ -180,8 +235,9 @@ export default function CommunitySelectionPage() {
                 <Button
                   onClick={handleCreateCommunity}
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+                  disabled={isLoading}
                 >
-                  Create Community
+                  {isLoading ? "Creating..." : "Create Community"}
                 </Button>
               </CardFooter>
             </Card>
