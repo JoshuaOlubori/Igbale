@@ -8,6 +8,20 @@
       "when": 1748093609811,
       "tag": "0000_fine_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1748100952035,
+      "tag": "0001_even_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1748101510518,
+      "tag": "0002_unknown_siren",
+      "breakpoints": true
     }
   ]
 }

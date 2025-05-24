@@ -41,9 +41,8 @@ export const UsersTable = pgTable(
     // email: varchar("email", { length: 255 }).notNull().unique(),
     username: varchar("username", { length: 255 }).notNull().unique(),
     // hashed_password: varchar("hashed_password", { length: 255 }).notNull(),
-    clerkUserId: text("clerk_user_id").notNull(),
+    clerkUserId: text("clerk_user_id").notNull().unique(),
     community_id: uuid("community_id")
-      .notNull()
       .references(() => CommunitiesTable.id, { onDelete: "cascade" }),
     points: integer("points").notNull().default(0),
     rank: integer("rank").notNull().default(0),
