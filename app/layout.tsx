@@ -6,6 +6,11 @@ import { Toaster } from '@/components/ui/sonner';
 import Navigation from '@/components/common/navigation';
 import { Link } from 'lucide-react';
 
+import {
+  ClerkProvider,
+
+} from '@clerk/nextjs'
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -19,6 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    <ClerkProvider>  
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -60,5 +66,6 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
+    </ClerkProvider>
   );
 }

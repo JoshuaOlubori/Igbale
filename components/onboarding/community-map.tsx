@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-
+import { env } from '@/data/env/client';
 // Set your Mapbox access token here
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "pk.eyJ1Ijoiam9zaDk5IiwiYSI6ImNtYjA5cXdtZzBqaGUybHM3dDJhd2I4MXgifQ.55FrpHVBVPtVFTFnsJ2wCA";
+mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 interface Community {
   id: string;
