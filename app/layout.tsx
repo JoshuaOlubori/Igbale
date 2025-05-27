@@ -10,6 +10,7 @@ import {
   ClerkProvider,
 
 } from '@clerk/nextjs'
+import GlobalLoader from './global-loader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,7 +31,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <div className="flex flex-col min-h-screen">
             <Navigation />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1">
+              <GlobalLoader />
+                {children}
+              </main>
             <footer className="py-6 border-t">
               <div className="container px-4 md:px-6">
                 <div className="flex flex-col md:flex-row justify-between items-center">
