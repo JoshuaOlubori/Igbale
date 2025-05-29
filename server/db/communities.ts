@@ -1,7 +1,8 @@
 import { db } from "@/drizzle/db"
 import { CommunitiesTable } from "@/drizzle/schema"
 import { CACHE_TAGS, revalidateDbCache, dbCache, getGlobalTag } from "@/lib/cache"
-import { eq } from "drizzle-orm"
+import { UsersTable } from "@/drizzle/schema";
+import { eq} from "drizzle-orm";
 import { CommunityWithDetails } from "@/lib/types"
 
 
@@ -131,4 +132,78 @@ async function getCommunitiesWithDetailsInternal({
   });
 
   return communitiesWithDetails;
+}
+
+
+/**
+ * Assigns a user to a specific community.
+ * @param communityId The ID of the community to join.
+ * @param userId The ID of the user (from your UsersTable, not Clerk's ID directly) to join the community.
+ * @returns The updated user, or null if the user was not found or updated.
+ */
+export async function joinCommunity(
+  communityId: string,
+  userId: string // This `userId` is the `id` from your `UsersTable`, not `clerkUserId`
+) {
+  // First, verify that the community exists
+  const communityExists = await db.query.CommunitiesTable.findFirst({
+    where: eq(CommunitiesTable.id, communityId),
+    columns: { id: true }, // Only need to select ID
+  });
+
+  if (!communityExists) {
+    throw new Error("Community not found.");
+  }
+
+  // Check if the user is already associated with any community
+  const currentUser = await db.query.UsersTable.findFirst({
+    where: eq(UsersTable.id, userId),
+    columns: { community_id: true },
+  });
+
+  if (currentUser?.community_id) {
+    // If user is already in a community, and it's NOT the one they're trying to join
+    // (though the frontend check should handle this too)
+    if (currentUser.community_id !== communityId) {
+       throw new Error("You are already a member of another community. Please leave your current community to join a new one.");
+    }
+    // If it's the same community, it's technically already joined, so just return
+    // (or throw a specific error if you want to differentiate)
+    throw new Error("You are already a member of this community.");
+  }
+
+
+  // Update the user's community_id
+  const [updatedUser] = await db
+    .update(UsersTable)
+    .set({ community_id: communityId })
+    .where(eq(UsersTable.id, userId)) // Update where your internal user ID matches
+    .returning({
+      id: UsersTable.id,
+      clerkUserId: UsersTable.clerkUserId,
+      community_id: UsersTable.community_id,
+    });
+
+  if (updatedUser != null) {
+    // Revalidate relevant caches
+    revalidateDbCache({
+      tag: CACHE_TAGS.users,
+      id: updatedUser.id,
+      userId: updatedUser.clerkUserId,
+    });
+
+    revalidateDbCache({
+      tag: CACHE_TAGS.communities,
+      id: communityId, // Specific community details might change (member count)
+    });
+
+    // Revalidate the global communities list cache (as the list of members for a community might change)
+    // This is important because the getCommunitiesWithDetails fetches members array length.
+    revalidateDbCache({
+      tag: CACHE_TAGS.communities,
+      id: getGlobalTag(CACHE_TAGS.communities).split(":")[1], // Get the actual tag name from the global tag
+    });
+  }
+
+  return updatedUser;
 }
