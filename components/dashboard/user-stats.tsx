@@ -1,19 +1,30 @@
 "use client"
-
+import { useUser } from "@clerk/nextjs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Award, Trash2, 
  // Users
  } from 'lucide-react';
+import { ClipLoader } from "react-spinners";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { motion } from '@/lib/framer-motion';
 
 export default function UserStats() {
+  const {user, isLoaded } = useUser()
   // This would come from your user data in a real app
+
+  if (!isLoaded) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <ClipLoader color="#36d7b7" size={50} />
+      </div>
+    );
+  }
+
   const userData = {
-    name: "Jane Cooper",
-    avatar: "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg",
+    name: user?.fullName,
+    avatar: user?.imageUrl,
     community: "Greenville",
     rank: 12,
     points: 1450,
@@ -34,8 +45,8 @@ export default function UserStats() {
       <CardHeader className="pb-2">
         <div className="flex items-center space-x-4">
           <Avatar className="h-12 w-12 border-2 border-primary">
-            <AvatarImage src={userData.avatar} alt={userData.name} />
-            <AvatarFallback>{userData.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={userData.avatar} alt={userData.name || 'User'} />
+            <AvatarFallback>{(userData.name || 'User').charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
             <CardTitle>{userData.name}</CardTitle>

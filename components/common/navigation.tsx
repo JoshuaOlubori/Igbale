@@ -1,28 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-import { cn } from "@/lib/utils";
-import { Leaf } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
-import { useState } from "react";
-
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ModeToggle } from '@/components/mode-toggle';
+import { NavigationMenu, NavigationMenuItem, NavigationMenuLink, NavigationMenuList } from '@/components/ui/navigation-menu';
+import { cn } from '@/lib/utils';
+import { Leaf } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Menu } from 'lucide-react';
+import { useState } from 'react';
 import {
   SignedIn,
   SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+  UserButton,
+} from '@clerk/nextjs'
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -68,37 +60,18 @@ export default function Navigation() {
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-4">
-            <SignedIn>
-              <ModeToggle />
-
-              <SignOutButton>
-                <Button
-                  className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
-                  size="sm"
-                >
-                  Sign Out
-                </Button>
-              </SignOutButton>
-            </SignedIn>
-
+            <ModeToggle />
             <SignedOut>
-              <ModeToggle />
-
-              <SignInButton>
-                <Button variant="outline" size="sm">
-                  Login
-                </Button>
-              </SignInButton>
-
-              <SignUpButton>
-                <Button
-                  className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
-                  size="sm"
-                >
-                  Sign Up
-                </Button>
-              </SignUpButton>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/sign-in">Login</Link>
+              </Button>
+              <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600" size="sm">
+                <Link href="/sign-up">Sign Up</Link>
+              </Button>
             </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
 
           <Sheet open={open} onOpenChange={setOpen}>
@@ -136,19 +109,17 @@ export default function Navigation() {
                 </nav>
                 <div className="flex flex-col gap-4 mt-4">
                   <ModeToggle />
-                  <Button asChild variant="outline">
-                    <Link href="/login" onClick={() => setOpen(false)}>
-                      Login
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
-                  >
-                    <Link href="/register" onClick={() => setOpen(false)}>
-                      Sign Up
-                    </Link>
-                  </Button>
+                  <SignedOut>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/sign-in">Login</Link>
+                    </Button>
+                    <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600" size="sm">
+                      <Link href="/sign-up">Sign Up</Link>
+                    </Button>
+                  </SignedOut>
+                  <SignedIn>
+                    <UserButton />
+                  </SignedIn>
                 </div>
               </div>
             </SheetContent>
