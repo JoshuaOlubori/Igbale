@@ -1,16 +1,9 @@
 "use server"
 
-import {
-CommunitiesSchema
-} from "@/schema/communities"
-
+import { CommunitiesSchema } from "@/schema/communities"
 import { z } from "zod"
-import {
-    createCommunity as createCommunityDb,
-
-} from "@/server/db/communities"
-import { redirect } from "next/navigation"
-
+import { createCommunity as createCommunityDb } from "@/server/db/communities"
+// import { redirect } from "next/navigation"
 
 export async function createCommunity(
   unsafeData: z.infer<typeof CommunitiesSchema>
@@ -22,18 +15,18 @@ export async function createCommunity(
   }
 
   try {
-    const { id } = await createCommunityDb(data )
+    const { id } = await createCommunityDb(data)
     console.log("Community created with ID:", id)
-    redirect("/dashboard")
-    // redirect(`/dashboard/communities/${id}/edit`)
+    // Move the redirect outside of try/catch
+    return { error: false, message: "Community created successfully" }
   } catch (error) {
+    console.error("Error creating community:", error);
     if (error instanceof Error && error.message === "A community with this name already exists.") {
       return { 
         error: true, 
         message: "A community with this name already exists. Please choose a different name." 
       }
     }
-    // Handle other potential errors
     return { 
       error: true, 
       message: "An unexpected error occurred while creating the community." 

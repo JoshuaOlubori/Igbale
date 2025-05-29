@@ -1,3 +1,5 @@
+// drizzle/schema.ts (updated with relations)
+
 import {
   pgTable,
   uuid,
@@ -8,8 +10,9 @@ import {
   unique,
   real,
   varchar,
-  index
+  index,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm"; // Import relations
 
 // Shared timestamp fields
 const createdAt = timestamp("created_at", { withTimezone: true })
@@ -24,9 +27,10 @@ export const CommunitiesTable = pgTable(
     id,
     name: varchar("name", { length: 255 }).notNull().unique(),
     location: varchar("location", { length: 255 }).notNull(),
+    cover_image: varchar("cover_image", { length: 255 }),
     description: text("description"),
     point_location: jsonb("point_location").notNull(), // Using JSONB for GeoJSON or similar structure
-    radius: real("radius").notNull().default(0), 
+    radius: real("radius").notNull().default(0),
     createdAt,
   },
   (table) => {
@@ -39,21 +43,17 @@ export const UsersTable = pgTable(
   "users",
   {
     id,
-    // email: varchar("email", { length: 255 }).notNull().unique(),
     username: varchar("username", { length: 255 }).notNull().unique(),
-    // hashed_password: varchar("hashed_password", { length: 255 }).notNull(),
     clerkUserId: text("clerk_user_id").notNull().unique(),
     community_id: uuid("community_id")
-      .references(() => CommunitiesTable.id, { onDelete: "cascade" }),
+      .references(() => CommunitiesTable.id, { onDelete: "set null" }), // Changed to set null if a community is deleted, as users might exist without a community
     points: integer("points").notNull().default(0),
     rank: integer("rank").notNull().default(0),
     avatar_url: varchar("avatar_url", { length: 255 }),
     createdAt,
   },
   (table) => {
-    return [
-      index("user_id_idx").on(table.id)
-    ];
+    return [index("user_id_idx").on(table.id)];
   }
 );
 
@@ -81,9 +81,7 @@ export const PickupsTable = pgTable(
       .defaultNow(),
   },
   (table) => {
-    return [
-      index("pickups_id_idx").on(table.id)
-    ];
+    return [index("pickups_id_idx").on(table.id)];
   }
 );
 
@@ -115,4 +113,49 @@ export const UserBadgesTable = pgTable(
       unique("user_badge_unique").on(table.user_id, table.badge_id), // Ensure a user can only earn a badge once
     ];
   }
+);
+
+// --- Define Relations ---
+
+export const CommunitiesRelations = relations(CommunitiesTable, ({ many }) => ({
+  users: many(UsersTable), // A community can have many users
+  pickups: many(PickupsTable), // A community can have many pickups
+}));
+
+export const UsersRelations = relations(UsersTable, ({ one, many }) => ({
+  community: one(CommunitiesTable, {
+    fields: [UsersTable.community_id],
+    references: [CommunitiesTable.id],
+  }), // A user belongs to one community (optional)
+  pickups: many(PickupsTable), // A user can have many pickups
+  userBadges: many(UserBadgesTable), // A user can have many user badges
+}));
+
+export const PickupsRelations = relations(PickupsTable, ({ one }) => ({
+  user: one(UsersTable, {
+    fields: [PickupsTable.user_id],
+    references: [UsersTable.id],
+  }), // A pickup belongs to one user
+  community: one(CommunitiesTable, {
+    fields: [PickupsTable.community_id],
+    references: [CommunitiesTable.id],
+  }), // A pickup belongs to one community
+}));
+
+export const BadgesRelations = relations(BadgesTable, ({ many }) => ({
+  userBadges: many(UserBadgesTable), // A badge can be associated with many user badges
+}));
+
+export const UserBadgesRelations = relations(
+  UserBadgesTable,
+  ({ one }) => ({
+    user: one(UsersTable, {
+      fields: [UserBadgesTable.user_id],
+      references: [UsersTable.id],
+    }), // A user badge belongs to one user
+    badge: one(BadgesTable, {
+      fields: [UserBadgesTable.badge_id],
+      references: [BadgesTable.id],
+    }), // A user badge refers to one badge
+  })
 );
