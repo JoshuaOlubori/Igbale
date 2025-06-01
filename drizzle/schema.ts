@@ -11,6 +11,7 @@ import {
   real,
   varchar,
   index,
+  pgEnum
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm"; // Import relations
 
@@ -19,6 +20,17 @@ const createdAt = timestamp("created_at", { withTimezone: true })
   .notNull()
   .defaultNow();
 const id = uuid("id").primaryKey().defaultRandom();
+
+// ENUMS
+export const StatusEnum = pgEnum(
+  "status_enum",
+  ["active", "pending", "done"] as const // Enum for pickup status
+)
+// Add a general ActivityType enum
+export const ActivityTypeEnum = pgEnum(
+  "activity_type_enum",
+  ["trash_report", "trash_pickup"] as const
+);
 
 // Communities Table
 export const CommunitiesTable = pgTable(
@@ -62,28 +74,44 @@ export const PickupsTable = pgTable(
   "pickups",
   {
     id,
-    user_id: uuid("user_id")
-      .notNull()
-      .references(() => UsersTable.id, { onDelete: "cascade" }),
+    // user_id is now in ActivitiesTable, representing the reporter
     community_id: uuid("community_id")
       .notNull()
       .references(() => CommunitiesTable.id, { onDelete: "cascade" }),
-    location: jsonb("location").notNull(), // Using JSONB for GeoJSON or similar structure
+    location: jsonb("location").notNull(),
     image_urls: varchar("image_urls", { length: 255 })
       .array()
       .notNull()
-      .default([]), // Array of VARCHAR
-    estimated_weight: real("estimated_weight").notNull().default(0), // REAL for decimal weight
+      .default([]),
+    estimated_weight: real("estimated_weight").notNull().default(0),
     trash_type: varchar("trash_type", { length: 255 }).notNull(),
-    points_earned: integer("points_earned").notNull().default(0),
-    reported_at: timestamp("reported_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    status: StatusEnum("status").notNull().default("pending"),
+    // removed reported_at and picked_by, they will be handled by ActivitiesTable entries
   },
   (table) => {
     return [index("pickups_id_idx").on(table.id)];
   }
 );
+
+// New Activities Table
+export const ActivitiesTable = pgTable(
+  "activities",
+  {
+    id,
+    user_id: uuid("user_id") // The user performing the activity
+      .notNull()
+      .references(() => UsersTable.id, { onDelete: "cascade" }),
+    type: ActivityTypeEnum("type").notNull(), // 'trash_report' or 'trash_pickup'
+    pickup_id: uuid("pickup_id") // Optional: links to a PickupsTable entry if it's a pickup
+      .references(() => PickupsTable.id, { onDelete: "set null" }),
+    // Add other relevant fields if needed, e.g., location, description for a general activity log
+    created_at: createdAt, // Timestamp of the activity
+  },
+  (table) => {
+    return [index("activity_user_id_idx").on(table.user_id)];
+  }
+);
+
 
 // Badges Table
 export const BadgesTable = pgTable("badges", {
@@ -126,21 +154,20 @@ export const UsersRelations = relations(UsersTable, ({ one, many }) => ({
   community: one(CommunitiesTable, {
     fields: [UsersTable.community_id],
     references: [CommunitiesTable.id],
-  }), // A user belongs to one community (optional)
-  pickups: many(PickupsTable), // A user can have many pickups
-  userBadges: many(UserBadgesTable), // A user can have many user badges
+  }),
+  // Remove pickups from here if they are now linked via ActivitiesTable
+  activities: many(ActivitiesTable), // A user can have many activities
+  userBadges: many(UserBadgesTable),
 }));
 
-export const PickupsRelations = relations(PickupsTable, ({ one }) => ({
-  user: one(UsersTable, {
-    fields: [PickupsTable.user_id],
-    references: [UsersTable.id],
-  }), // A pickup belongs to one user
+export const PickupsRelations = relations(PickupsTable, ({one, many }) => ({
   community: one(CommunitiesTable, {
     fields: [PickupsTable.community_id],
     references: [CommunitiesTable.id],
-  }), // A pickup belongs to one community
+  }),
+  activities: many(ActivitiesTable), // A pickup can have many related activities (report, then pickup)
 }));
+
 
 export const BadgesRelations = relations(BadgesTable, ({ many }) => ({
   userBadges: many(UserBadgesTable), // A badge can be associated with many user badges
@@ -159,3 +186,14 @@ export const UserBadgesRelations = relations(
     }), // A user badge refers to one badge
   })
 );
+
+export const ActivitiesRelations = relations(ActivitiesTable, ({ one }) => ({
+  user: one(UsersTable, {
+    fields: [ActivitiesTable.user_id],
+    references: [UsersTable.id],
+  }),
+  pickup: one(PickupsTable, {
+    fields: [ActivitiesTable.pickup_id],
+    references: [PickupsTable.id],
+  }),
+}));

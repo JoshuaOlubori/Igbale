@@ -1,3 +1,4 @@
+// lib/cache.ts
 import { revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 
@@ -16,6 +17,7 @@ export const CACHE_TAGS = {
   pickups: "pickups",
   badges: "badges",
   userBadges: "userBadges", // For the many-to-many relationship table
+  activities: "activities", // <--- ADD THIS LINE
 } as const; // `as const` makes the values literal types, improving type inference.
 
 /**

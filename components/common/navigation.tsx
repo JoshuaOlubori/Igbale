@@ -34,7 +34,7 @@ export default function Navigation() {
           <Link href="/" className="flex items-center space-x-2">
             <Leaf className="h-6 w-6 text-green-600" />
             <span className="font-bold text-xl hidden md:inline-block">
-              EcoCollect
+              Ayang
             </span>
           </Link>
           <NavigationMenu className="hidden md:block">

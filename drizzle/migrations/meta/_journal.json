@@ -43,6 +43,20 @@
       "when": 1748194240144,
       "tag": "0005_pink_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1748702571718,
+      "tag": "0006_wet_pyro",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1748718026199,
+      "tag": "0007_glossy_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }
