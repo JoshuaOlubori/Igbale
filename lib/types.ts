@@ -83,3 +83,12 @@ export type UserWithCommunityAndBadges = InferSelectModel<typeof UsersTable> & {
     badge: InferSelectModel<typeof BadgesTable>;
   }>;
 };
+
+// Type for a single leaderboard entry
+export type LeaderboardEntry = {
+  id: string; // User ID
+  name: string | null;
+  avatar: string | null;
+  points: number;
+  collections: number;
+};
