@@ -1,26 +1,35 @@
-// dashboard/components/user-stats.tsx
+// components/dashboard/user-stats.tsx
 "use client";
 
 import { useUser } from "@clerk/nextjs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Award, Trash2 } from 'lucide-react';
+import { Award, Trash2, LogOut } from 'lucide-react';
 import { ClipLoader } from "react-spinners";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { motion } from '@/lib/framer-motion';
-import { useEffect, useState } from "react"; // Import useEffect and useState
-import { getDashboardUserStats } from "@/server/actions/user-stats"; // Import the server action
-import { UserStatsData } from "@/lib/types"; // Import the type
+import { useEffect, useState } from "react";
+import { getDashboardUserStats } from "@/server/actions/user-stats";
+import { UserStatsData } from "@/lib/types";
+import { leaveCommunity } from "@/server/actions/communities";
+import { Button } from "../ui/button";
+import Link from "next/link"; // Use Link for client-side navigation
+// import { useRouter } from 'next/navigation'; // Keep useRouter for potential future client-side uses or type hints
 
-export default function UserStats() {
+interface UserStatsProps {
+  userCommunityId: string | null;
+}
+
+export default function UserStats({ userCommunityId }: UserStatsProps) {
   const {  isLoaded: isClerkLoaded } = useUser();
   const [userData, setUserData] = useState<UserStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
+  // const router = useRouter(); // Initialize router (can be useful for router.refresh() later)
 
   useEffect(() => {
-    // Only fetch data if Clerk user is loaded and not already loading/loaded
     if (isClerkLoaded && !userData && isLoading) {
       const fetchStats = async () => {
         setIsLoading(true);
@@ -32,7 +41,7 @@ export default function UserStats() {
           } else if (userStats) {
             setUserData(userStats);
           } else {
-            setError("User stats not found."); // Case where userStats is null but no specific error
+            setError("User stats not found.");
           }
         } catch (err) {
           console.error("Failed to fetch user stats:", err);
@@ -44,7 +53,42 @@ export default function UserStats() {
 
       fetchStats();
     }
-  }, [isClerkLoaded, userData, isLoading]); // Depend on clerk loaded state to trigger fetch
+  }, [isClerkLoaded, userData, isLoading]);
+
+  const handleLeaveCommunity = async () => {
+    if (!confirm("Are you sure you want to leave your community? You will lose access to community-specific features and your progress will no longer contribute to its leaderboard.")) {
+      return;
+    }
+    setIsLeaving(true);
+    try {
+      // Call the server action. It will redirect directly.
+      await leaveCommunity();
+      // Code here will NOT be reached if redirect is successful
+      // If the Server Action throws a non-redirect error, it will be caught below
+    } catch (err: any ) // eslint-disable-line @typescript-eslint/no-explicit-any
+     { 
+      // Use any for the error type to catch NEXT_REDIRECT 
+      // Next.js redirect throws a special error object.
+      // We check for the 'NEXT_REDIRECT' digest to confirm it's a redirect.
+      // If it's a redirect, we don't need to do anything, as the navigation will happen.
+      if (err && err.digest && err.digest.startsWith('NEXT_REDIRECT')) {
+        // This is the expected behavior for a redirect, so do nothing here.
+        // The page will navigate.
+        console.log("Redirect initiated by server action.");
+      } else {
+        // This is a genuine error from the server action (e.g., authentication fail, DB error)
+        console.error("Error leaving community:", err);
+        alert(`Failed to leave community: ${err.message || "An unknown error occurred."}`);
+      }
+    } finally {
+      // Only set isLeaving to false if it's NOT a redirect (i.e., if an actual error occurred
+      // and the component is still mounted and visible).
+      // If it's a redirect, the component will unmount, and this state update is irrelevant.
+      // However, for robustness, keep it here.
+      setIsLeaving(false);
+    }
+  };
+
 
   if (isLoading || !isClerkLoaded) {
     return (
@@ -54,6 +98,22 @@ export default function UserStats() {
     );
   }
 
+  // If user is logged in but has no community_id, display the "Join a community" message
+  if (!userCommunityId) {
+    return (
+      <Card className="h-full flex flex-col justify-center items-center p-6 text-center">
+        <CardTitle className="mb-2">Not in a community</CardTitle>
+        <CardDescription className="mb-4">
+          Join a community to start tracking your individual progress, earn points, and contribute to local cleanup efforts!
+        </CardDescription>
+        <Link href="/communities" passHref>
+          <Button>Browse Communities</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  // If there's an error loading user stats (and they are in a community)
   if (error || !userData) {
     return (
       <Card className="h-full flex items-center justify-center p-6 text-center text-red-500">
@@ -121,13 +181,29 @@ export default function UserStats() {
                 transition={{ duration: 0.3 }}
               >
                 <Badge variant="outline" className="px-2 py-1 flex items-center gap-1 text-sm bg-background">
-                  {/* You might need to map your badge icon string to an actual emoji or component */}
                   <span className="text-base">{badge.icon || "✨"}</span>
                   {badge.name}
                 </Badge>
               </motion.div>
             ))}
           </div>
+        </div>
+
+        {/* Leave Community Button */}
+        <div className="pt-4 border-t mt-6">
+          <Button
+            variant="outline"
+            className="w-full text-red-500 hover:text-red-600 border-red-300 hover:border-red-500"
+            onClick={handleLeaveCommunity}
+            disabled={isLeaving}
+          >
+            {isLeaving ? (
+              <ClipLoader color="currentColor" size={16} />
+            ) : (
+              <LogOut className="mr-2 h-4 w-4" />
+            )}
+            {isLeaving ? 'Leaving...' : 'Leave Community'}
+          </Button>
         </div>
       </CardContent>
     </Card>
