@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { SignUpButton } from '@clerk/nextjs';
 
@@ -41,17 +42,18 @@ export default function HeroSection() {
             <div className="relative hidden md:block">
               <div className="absolute -top-12 -left-12 w-96 h-96 bg-emerald-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
               <div className="absolute -bottom-12 -right-12 w-96 h-96 bg-green-600 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-[400px] aspect-[4/3] rounded-xl overflow-hidden border-8 border-white dark:border-black shadow-2xl">
-                <img 
+                <Image 
                   src="https://images.pexels.com/photos/6617801/pexels-photo-6617801.jpeg" 
                   alt="People collecting trash" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
+                  className="object-cover"
+                  fill
+                  priority
+              />
+              
             </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  );  
 }

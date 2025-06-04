@@ -216,7 +216,7 @@ export default function CommunitySelectionPage() {
                     placeholder="Type in your community address"
                     value={communityAddress}
                     onChange={(e) => setCommunityAddress(e.target.value)}
-                  />
+                  />23
                 </div>
 
                 <div className="space-y-2">

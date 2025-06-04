@@ -11,8 +11,15 @@ import {
 // import { type ColumnType } from "drizzle-orm"; // Import ColumnType for optional use if needed
 
 export type PointLocation = {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
+};
+
+
+// Define the type for point_location structure
+export type PointLocation2 = {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
 };
 
 // Define the type for the basic Community data directly from the schema
