@@ -25,6 +25,7 @@ interface CommunityMapProps {
   onLocationSelect?: (location: { lat: number; lng: number }) => void;
   radius?: number;
   onRadiusChange?: (radius: number) => void;
+  initialLocation?: { lat: number; lng: number } | null;
 }
 
 // Dummy data for existing communities in Lagos, Nigeria
@@ -66,12 +67,13 @@ export default function CommunityMap({
   onLocationSelect,
   radius = 1000,
   onRadiusChange,
+  initialLocation,
 }: CommunityMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [lng, setLng] = useState(3.3792); // Lagos, Nigeria longitude
-  const [lat, setLat] = useState(6.5244); // Lagos, Nigeria latitude
-  const [zoom, setZoom] = useState(11);
+  const [lng, setLng] = useState(initialLocation?.lng || 3.3792); // Lagos, Nigeria longitude
+  const [lat, setLat] = useState(initialLocation?.lat || 6.5244); // Lagos, Nigeria latitude
+  const [zoom, setZoom] = useState(17); // Changed from 11 to 14 for a more zoomed-in view
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
     lng: number;
@@ -79,11 +81,11 @@ export default function CommunityMap({
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const circleLayerId = useRef<string | null>(null);
   const currentMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
   useEffect(() => {
-    if (map.current) return; // Initialize map only once
-
+    if (map.current) return;
     if (!mapContainer.current) return;
 
     map.current = new mapboxgl.Map({
@@ -91,6 +93,11 @@ export default function CommunityMap({
       style: env.NEXT_PUBLIC_MAPBOX_STYLE,
       center: [lng, lat],
       zoom: zoom,
+    });
+
+    // Wait for both the map to load and style to be fully loaded
+    map.current.on("load", () => {
+      setMapLoaded(true);
     });
 
     map.current.on("move", () => {
@@ -112,9 +119,39 @@ export default function CommunityMap({
     };
   }, []);
 
+  // Effect to handle centering the map on initialLocation
+  useEffect(() => {
+    if (map.current && mapLoaded && initialLocation && !joinMode) {
+      map.current.setCenter([initialLocation.lng, initialLocation.lat]);
+      // Also update selectedLocation and add marker if not already set
+      if (!selectedLocation || (selectedLocation.lat !== initialLocation.lat || selectedLocation.lng !== initialLocation.lng)) {
+        setSelectedLocation(initialLocation);
+        onLocationSelect?.(initialLocation);
+
+        if (currentMarkerRef.current) {
+          currentMarkerRef.current.remove();
+        }
+
+        const markerElement = document.createElement("div");
+        markerElement.style.cssText = `
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #3b82f6;
+          border: 3px solid white;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        `;
+
+        currentMarkerRef.current = new mapboxgl.Marker(markerElement)
+          .setLngLat([initialLocation.lng, initialLocation.lat])
+          .addTo(map.current);
+      }
+    }
+  }, [initialLocation, mapLoaded, joinMode, onLocationSelect, selectedLocation]);
+
   // Handle existing communities in join mode
   useEffect(() => {
-    if (!map.current || !joinMode) return;
+    if (!map.current || !mapLoaded || !joinMode) return;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
@@ -182,49 +219,48 @@ export default function CommunityMap({
 
       markersRef.current.push(marker);
 
-      // Add community radius circle
+      // Add community radius circle - now using mapLoaded check
       const sourceId = `community-${community.id}`;
       const layerId = `community-circle-${community.id}`;
 
-      map.current.on("load", () => {
-        if (!map.current!.getSource(sourceId)) {
-          map.current!.addSource(sourceId, {
-            type: "geojson",
-            data: {
-              type: "Feature",
-              properties: {},
-              geometry: {
-                type: "Point",
-                coordinates: [community.location.lng, community.location.lat],
-              },
+      if (!map.current!.getSource(sourceId)) {
+        map.current!.addSource(sourceId, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "Point",
+              coordinates: [community.location.lng, community.location.lat],
             },
-          });
+          },
+        });
 
-          map.current!.addLayer({
-            id: layerId,
-            type: "circle",
-            source: sourceId,
-            paint: {
-              "circle-radius": {
-                stops: [
-                  [0, 0],
-                  [20, community.radius / 10],
-                ],
-                base: 2,
-              },
-              "circle-color":
-                selectedCommunity === community.id ? "#16a34a" : "#22c55e",
-              "circle-opacity": selectedCommunity === community.id ? 0.3 : 0.2,
-              "circle-stroke-width": 2,
-              "circle-stroke-color":
-                selectedCommunity === community.id ? "#16a34a" : "#22c55e",
-              "circle-stroke-opacity": 0.8,
+        // This part needs to be updated if join mode circles also need to be accurate
+        map.current!.addLayer({
+          id: layerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-radius": {
+              stops: [
+                [0, 0],
+                [20, community.radius / 10],
+              ],
+              base: 2,
             },
-          });
-        }
-      });
+            "circle-color":
+              selectedCommunity === community.id ? "#16a34a" : "#22c55e",
+            "circle-opacity": selectedCommunity === community.id ? 0.3 : 0.2,
+            "circle-stroke-width": 2,
+            "circle-stroke-color":
+              selectedCommunity === community.id ? "#16a34a" : "#22c55e",
+            "circle-stroke-opacity": 0.8,
+          },
+        });
+      }
     });
-  }, [joinMode, selectedCommunity, onSelectCommunity]);
+  }, [joinMode, selectedCommunity, onSelectCommunity, mapLoaded]);
 
   // Handle location selection in create mode
   useEffect(() => {
@@ -272,59 +308,57 @@ export default function CommunityMap({
 
   // Handle radius circle in create mode
   useEffect(() => {
-    if (!map.current || joinMode || !selectedLocation) return;
+    if (!map.current || !mapLoaded || joinMode || !selectedLocation) return;
 
-    // Remove existing circle
-    if (circleLayerId.current) {
-      if (map.current.getLayer(circleLayerId.current)) {
-        map.current.removeLayer(circleLayerId.current);
-      }
-      if (map.current.getSource("selected-location")) {
-        map.current.removeSource("selected-location");
-      }
-    }
-
-    // Add new circle
     const sourceId = "selected-location";
     const layerId = "selected-location-circle";
     circleLayerId.current = layerId;
 
-    if (!map.current.getSource(sourceId)) {
-      map.current.addSource(sourceId, {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "Point",
-            coordinates: [selectedLocation.lng, selectedLocation.lat],
-          },
-        },
-      });
-    } else {
-      const source = map.current.getSource(sourceId) as mapboxgl.GeoJSONSource;
-      source.setData({
+    // Function to calculate pixel radius based on meters
+    const calculatePixelRadius = (currentRadius: number, currentZoom: number, currentLat: number) => {
+      // Circumference of Earth in meters at the equator
+      const EARTH_CIRCUMFERENCE = 40075016.686;
+      // Pixels at zoom 0 for a 256x256 tile
+      const TILE_PIXELS = 256;
+
+      // Meters per pixel at the equator at current zoom level
+      const metersPerPixelAtEquator = EARTH_CIRCUMFERENCE / (TILE_PIXELS * Math.pow(2, currentZoom));
+
+      // Meters per pixel at the given latitude
+      const metersPerPixel = metersPerPixelAtEquator * Math.cos(currentLat * Math.PI / 180);
+
+      // Convert the desired radius (in meters) to pixels
+      return currentRadius / metersPerPixel;
+    };
+
+    // Remove existing circle and source if they exist
+    if (map.current.getLayer(layerId)) {
+      map.current.removeLayer(layerId);
+    }
+    if (map.current.getSource(sourceId)) {
+      map.current.removeSource(sourceId);
+    }
+
+    map.current.addSource(sourceId, {
+      type: "geojson",
+      data: {
         type: "Feature",
         properties: {},
         geometry: {
           type: "Point",
           coordinates: [selectedLocation.lng, selectedLocation.lat],
         },
-      });
-    }
+      },
+    });
+
+    const initialPixelRadius = calculatePixelRadius(radius, map.current.getZoom(), selectedLocation.lat);
 
     map.current.addLayer({
       id: layerId,
       type: "circle",
       source: sourceId,
       paint: {
-        "circle-radius": {
-          stops: [
-            [0, 0],
-            [20, radius / 10],
-          ],
-          base: 2,
-        },
+        "circle-radius": initialPixelRadius, // Set initial calculated radius
         "circle-color": "#3b82f6",
         "circle-opacity": 0.3,
         "circle-stroke-width": 2,
@@ -332,7 +366,54 @@ export default function CommunityMap({
         "circle-stroke-opacity": 0.8,
       },
     });
-  }, [selectedLocation, radius, joinMode]);
+
+    // Update the circle radius when zoom or map center changes
+    const updateCircleRadius = () => {
+      if (map.current && map.current.getLayer(layerId) && selectedLocation) {
+        const newPixelRadius = calculatePixelRadius(radius, map.current.getZoom(), selectedLocation.lat);
+        map.current.setPaintProperty(layerId, "circle-radius", newPixelRadius);
+      }
+    };
+
+    map.current.on("zoom", updateCircleRadius);
+    map.current.on("moveend", updateCircleRadius); // Also update on moveend to account for map center changes (which affect getZoom() and scale calculation)
+
+    return () => {
+      if (map.current) {
+        map.current.off("zoom", updateCircleRadius);
+        map.current.off("moveend", updateCircleRadius);
+        if (map.current.getLayer(layerId)) {
+          map.current.removeLayer(layerId);
+        }
+        if (map.current.getSource(sourceId)) {
+          map.current.removeSource(sourceId);
+        }
+      }
+    };
+  }, [selectedLocation, radius, joinMode, mapLoaded]); // Dependencies include radius and selectedLocation to re-initiate if they change
+
+  // Handle initial location setting
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !initialLocation || joinMode) return;
+
+    setSelectedLocation(initialLocation);
+    onLocationSelect?.(initialLocation);
+
+    // Create initial marker
+    const markerElement = document.createElement("div");
+    markerElement.style.cssText = `
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    `;
+
+    currentMarkerRef.current = new mapboxgl.Marker(markerElement)
+      .setLngLat([initialLocation.lng, initialLocation.lat])
+      .addTo(map.current);
+  }, [initialLocation, joinMode, mapLoaded, onLocationSelect]);
 
   return (
     <div className="space-y-4">
@@ -371,7 +452,7 @@ export default function CommunityMap({
           </label>
           <input
             type="range"
-            min="100"
+            min="30"
             max="5000"
             step="100"
             value={radius}

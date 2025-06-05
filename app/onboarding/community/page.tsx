@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CommunityMap from "@/components/onboarding/community-map";
-import CommunityList from "@/components/onboarding/community-list";
+// import CommunityList from "@/components/onboarding/community-list";
 import { MapPin, Users } from "lucide-react";
 import { createCommunity } from "@/server/actions/communities";
 import { getReverseGeocode } from "@/lib/utils";
@@ -35,6 +35,11 @@ export default function CommunitySelectionPage() {
   const [communityDescription, setCommunityDescription] = useState("");
   const [communityAddress, setCommunityAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const handleJoinCommunity = () => {
     if (!selectedCommunity) {
@@ -75,14 +80,16 @@ export default function CommunitySelectionPage() {
 
     setIsLoading(true);
     try {
-      // Get address if not already set
-      const address =
-        communityAddress ||
-        (await getReverseGeocode(communityLocation.lat, communityLocation.lng));
+      // Get address if not already set, or if the user updated the location on the map
+      // Always try to get the address based on the final communityLocation
+      const address = await getReverseGeocode(
+        communityLocation.lat,
+        communityLocation.lng
+      );
 
       const result = await createCommunity({
         name: communityName,
-        location: address,
+        location: address, // Use the dynamically obtained address
         description: communityDescription,
         point_location: communityLocation,
         radius: communityRadius * 1000, // Convert to meters
@@ -96,7 +103,7 @@ export default function CommunitySelectionPage() {
         toast.success("Community created!", {
           description: `You've successfully created the community "${communityName}"`,
         });
-        router.push("/dashboard");
+        router.push("/communities");
       }
     } catch (error) {
       toast.error("Error", {
@@ -104,6 +111,63 @@ export default function CommunitySelectionPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Get user's location when switching to create tab
+  const handleTabChange = async (tab: string) => {
+    setTab(tab);
+    if (tab === "create" && !userLocation) {
+      setIsLoadingLocation(true);
+      try {
+        const permission = await navigator.permissions.query({
+          name: "geolocation",
+        });
+
+        if (permission.state === "denied") {
+          toast.error("Location Access Denied", {
+            description:
+              "Please enable location access in your browser settings to create a community.",
+          });
+          setIsLoadingLocation(false); // Stop loading even if denied
+          return;
+        }
+
+        if (permission.state === "prompt") {
+          toast.info("Location Access Required", {
+            description:
+              "We need your location to help set up your community area.",
+          });
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const newLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            setUserLocation(newLocation);
+            setCommunityLocation(newLocation);
+
+            // Get address for the location
+            getReverseGeocode(newLocation.lat, newLocation.lng).then(
+              (address) => setCommunityAddress(address)
+            );
+            setIsLoadingLocation(false);
+          },
+          (error) => {
+            console.error("Error getting location:", error);
+            toast.error("Location Error", {
+              description:
+                "Could not get your location. You can still select a location manually on the map.",
+            });
+            setIsLoadingLocation(false); // Stop loading on error
+          }
+        );
+      } catch (error) {
+        console.error("Permission error:", error);
+        setIsLoadingLocation(false); // Stop loading on permission error
+      }
     }
   };
 
@@ -117,7 +181,11 @@ export default function CommunitySelectionPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="join" className="w-full" onValueChange={setTab}>
+      <Tabs
+        defaultValue="join"
+        className="w-full"
+        onValueChange={handleTabChange}
+      >
         <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto">
           <TabsTrigger value="join" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -142,10 +210,6 @@ export default function CommunitySelectionPage() {
                 <div className="space-y-6">
                   <CommunityMap
                     joinMode={true}
-                    onSelectCommunity={setSelectedCommunity}
-                    selectedCommunity={selectedCommunity}
-                  />
-                  <CommunityList
                     onSelectCommunity={setSelectedCommunity}
                     selectedCommunity={selectedCommunity}
                   />
@@ -216,18 +280,20 @@ export default function CommunitySelectionPage() {
                     placeholder="Type in your community address"
                     value={communityAddress}
                     onChange={(e) => setCommunityAddress(e.target.value)}
-                  />23
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
                     Community Location
+                    {isLoadingLocation && " (Getting your location...)"}
                   </label>
                   <CommunityMap
                     joinMode={false}
                     onLocationSelect={setCommunityLocation}
                     radius={communityRadius}
                     onRadiusChange={setCommunityRadius}
+                    initialLocation={userLocation}
                   />
                 </div>
               </CardContent>

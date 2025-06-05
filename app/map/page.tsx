@@ -95,9 +95,11 @@ export default function HomePage() { // Renamed from MapPage to avoid conflict w
       lat: pickup.latitude,
       lng: pickup.longitude,
     },
-    // Add other properties if your FixedMap Pickup interface needs them
-    // For example, if FixedMap's Pickup had a `trash_type` property:
-    // trash_type: pickup.trash_type,
+    trash_type: pickup.trash_type,
+    estimated_weight: pickup.estimated_weight,
+    image_urls: pickup.image_urls,
+    reported_at: pickup.reported_at,
+    reported_by_username: pickup.reported_by_username
   }));
 
   // For userLocation, the FixedMap component has a default, but if you want

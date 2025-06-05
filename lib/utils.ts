@@ -20,3 +20,18 @@ export function cn(...inputs: ClassValue[]) {
       return "";
     }
   };
+
+
+  export const calculatePixelRadius = (currentRadius: number, currentZoom: number, currentLat: number) => {
+  const EARTH_CIRCUMFERENCE = 40075016.686; // Circumference of Earth in meters at the equator
+  const TILE_PIXELS = 256; // Pixels at zoom 0 for a 256x256 tile
+
+  // Meters per pixel at the equator at current zoom level
+  const metersPerPixelAtEquator = EARTH_CIRCUMFERENCE / (TILE_PIXELS * Math.pow(2, currentZoom));
+
+  // Meters per pixel at the given latitude
+  const metersPerPixel = metersPerPixelAtEquator * Math.cos(currentLat * Math.PI / 180);
+
+  // Convert the desired radius (in meters) to pixels
+  return currentRadius / metersPerPixel;
+};
