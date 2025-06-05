@@ -7,6 +7,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     CLERK_SECRET_KEY: z.string(),
     CLERK_WEBHOOK_SIGNING_SECRET: z.string(),
+     GEMINI_API_KEY: z.string().optional(),
     // STRIPE_SECRET_KEY: z.string(),
     // STRIPE_WEBHOOK_SECRET: z.string(),
     // STRIPE_BASIC_PLAN_STRIPE_PRICE_ID: z.string(),

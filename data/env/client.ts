@@ -11,7 +11,8 @@ export const env = createEnv({
     NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL: z.string(),
     NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL: z.string(),
     NEXT_PUBLIC_MAPBOX_TOKEN: z.string(),
-    NEXT_PUBLIC_MAPBOX_STYLE: z.string().url()
+    NEXT_PUBLIC_MAPBOX_STYLE: z.string().url(),
+     NEXT_PUBLIC_MAX_IMAGE_SIZE_MB: z.string().default("4.5"),
   },
   experimental__runtimeEnv: {
     // NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
@@ -24,6 +25,7 @@ export const env = createEnv({
     NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL:
       process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
-    NEXT_PUBLIC_MAPBOX_STYLE: process.env.NEXT_PUBLIC_MAPBOX_STYLE
+    NEXT_PUBLIC_MAPBOX_STYLE: process.env.NEXT_PUBLIC_MAPBOX_STYLE,
+     NEXT_PUBLIC_MAX_IMAGE_SIZE_MB: process.env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB,
   },
 })

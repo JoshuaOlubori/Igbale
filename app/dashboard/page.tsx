@@ -2,19 +2,21 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Camera, MapPin } from 'lucide-react';
-import UserStats from '@/components/dashboard/user-stats'; // Keep as is, will be Client Component
+import { MapPin } from 'lucide-react'; // Camera icon no longer needed here, it's in the dropdown
+import UserStats from '@/components/dashboard/user-stats';
 import ActivityFeed from '@/components/dashboard/activity-feed';
 import CommunityLeaderboard from '@/components/dashboard/community-leaderboard';
 import Link from 'next/link';
 import { getDashboardActivityFeed } from '@/server/actions/activity-feed';
-import { currentUser } from '@clerk/nextjs/server'; // Import currentUser
-import { getUserCommunityId } from '@/server/db/communities'; // Import the new db function
+import { currentUser } from '@clerk/nextjs/server';
+import { getUserCommunityId } from '@/server/db/communities';
+
+// Import the new CaptureDropdown component
+import CaptureDropdown from '@/components/dashboard/capture-dashboard';
 
 export default async function Dashboard() {
   const { activities, error: activityError } = await getDashboardActivityFeed(10);
 
-  // Fetch user's community status on the server
   const clerkUser = await currentUser();
   let userCommunityId: string | null = null;
   if (clerkUser) {
@@ -33,17 +35,9 @@ export default async function Dashboard() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          {hasCommunity && ( // Only show if user is in a community
-            <Button
-              asChild
-              className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
-            >
-              <Link href="/pickup/new">
-                <Camera className="mr-2 h-4 w-4" />
-                Record Pickup
-              </Link>
-            </Button>
-          )}
+          {/* Replaced the old "Record Pickup" button with the new CaptureDropdown */}
+          <CaptureDropdown hasCommunity={hasCommunity} />
+
           <Button asChild variant="outline">
             <Link href="/map">
               <MapPin className="mr-2 h-4 w-4" />
@@ -54,7 +48,7 @@ export default async function Dashboard() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
-        <UserStats userCommunityId={userCommunityId} /> {/* Pass communityId as prop */}
+        <UserStats userCommunityId={userCommunityId} />
 
         <div className="md:col-span-2 space-y-6">
           {!hasCommunity ? (
