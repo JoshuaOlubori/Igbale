@@ -1,4 +1,4 @@
-// pickup/page.tsx
+// app/collect/page.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -12,49 +12,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, Upload, X, MapPin } from "lucide-react"; // Added MapPin
+import { Camera, Loader2, Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import TrashAnalysisResult from "@/components/pickup/trash-analysis-result";
 import { toast } from "sonner";
 import Image from "next/image";
 
-// Define the type for the analysis result from the API
-interface AnalysisResult {
-  weight: number;
-  type: string;
-  points: number;
-  location: string; // This would be a description of the location
-  latitude: number; // Actual latitude reported
-  longitude: number; // Actual longitude reported
+interface CleanupVerificationResult {
+  confidence: number;
+  error?: string;
+  message?: string; // Add message for display
 }
 
-export default function NewPickupPage() {
+export default function CollectPickupPage() {
   const router = useRouter();
 
-  const [step, setStep] = useState<"capture" | "analysis" | "confirm">(
+  const [step, setStep] = useState<"capture" | "verifying" | "result">(
     "capture"
   );
   const [imageFiles, setImageFiles] = useState<File[]>([]); // Store File objects
   const [imagePreviews, setImagePreviews] = useState<string[]>([]); // Store Blob URLs for previews
   const [isUploading, setIsUploading] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisDone, setAnalysisDone] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null); // Store user's current location
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<CleanupVerificationResult | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
-
-  // Effect to get user's location on component mount
-  useEffect(() => {
-    getGeolocation();
-  }, []);
 
   // Effect to clean up Blob URLs when images change or component unmounts
   useEffect(() => {
@@ -63,41 +46,10 @@ export default function NewPickupPage() {
     };
   }, [imagePreviews]);
 
-  const getGeolocation = () => {
-    if ("geolocation" in navigator) {
-      setIsGettingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-          setIsGettingLocation(false);
-          toast.success("Location acquired!", {
-            description: "Your current location has been successfully fetched.",
-          });
-        },
-        (error) => {
-          console.error("Error getting geolocation:", error);
-          setIsGettingLocation(false);
-          toast.error("Location Error", {
-            description:
-              "Could not get your current location. Please enable location services and try again.",
-          });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else {
-      toast.error("Geolocation Not Supported", {
-        description: "Your browser does not support geolocation.",
-      });
-    }
-  };
-
   const handleCaptureClick = () => {
     if (imageFiles.length >= 3) {
       toast.warning("Maximum photos reached", {
-        description: "You can only upload 3 photos per trash report.",
+        description: "You can only upload 3 photos for cleanup verification.",
       });
       return;
     }
@@ -127,7 +79,7 @@ export default function NewPickupPage() {
         newPreviews.push(URL.createObjectURL(file));
       } else {
         toast.warning("Maximum photos reached", {
-          description: "You can only upload 3 photos per trash report.",
+          description: "You can only upload 3 photos for cleanup verification.",
         });
         break; // Stop adding files
       }
@@ -157,24 +109,14 @@ export default function NewPickupPage() {
   const handleSubmitImages = async () => {
     if (imageFiles.length < 3) {
       toast.warning("Not enough photos", {
-        description: "Please take 3 photos of the trash from different angles.",
-      });
-      return;
-    }
-
-    if (!currentLocation) {
-      toast.error("Location Required", {
-        description: "Please allow access to your location to report trash.",
-        action: {
-          label: "Get Location",
-          onClick: () => getGeolocation(),
-        },
+        description: "Please take 3 photos of the cleaned area from different angles.",
       });
       return;
     }
 
     setIsUploading(true);
-    setStep("analysis"); // Move to analysis step immediately after starting upload
+    setIsVerifying(true); // Start verification loading state
+    setStep("verifying"); // Move to verifying step
 
     try {
       // Convert all image files to Base64
@@ -182,82 +124,61 @@ export default function NewPickupPage() {
         imageFiles.map((file) => convertFileToBase64(file))
       );
 
-      // Make API call to /api/scan
-      const response = await fetch("/api/scan", {
+      // Make API call to /api/collect
+      const response = await fetch("/api/collect", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           images: base64Images,
-          latitude: currentLocation.lat,
-          longitude: currentLocation.lng,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to analyze trash.");
+      const apiResult: CleanupVerificationResult = await response.json();
+      setVerificationResult(apiResult);
+
+      if (!response.ok || (apiResult.confidence && apiResult.confidence <= 50)) {
+        // If response is not ok or confidence is low, show error toast
+        toast.error("Cleanup Not Confirmed", {
+          description: apiResult.message || "The AI could not confirm that the area has been cleaned. Please try again.",
+        });
+        setStep("result"); // Show result screen for "Try again" option
+      } else {
+        // Successful cleanup confirmation
+        toast.success("Cleanup Confirmed!", {
+          description: apiResult.message || "Great job! Your cleanup has been successfully verified.",
+        });
+        router.push("/dashboard"); // Redirect to dashboard on success
       }
 
-      const apiResult: AnalysisResult = await response.json();
-      setResult(apiResult); // Set the result from the API
-
-      setIsUploading(false); // Upload is done
-      setIsAnalyzing(false); // Analysis is done (as it's part of the API response)
-      setAnalysisDone(true);
-    } catch (error: any) // eslint-disable-line @typescript-eslint/no-explicit-any
-    { 
-      console.error("Error during image submission or analysis:", error);
-      toast.error("Submission Failed", {
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      console.error("Error during image submission or verification:", error);
+      toast.error("Verification Failed", {
         description:
           error.message ||
-          "An error occurred during trash analysis. Please try again.",
+          "An error occurred during cleanup verification. Please try again.",
       });
-      setIsUploading(false);
-      setIsAnalyzing(false);
-      setAnalysisDone(false);
       setStep("capture"); // Go back to capture step on error
+    } finally {
+      setIsUploading(false);
+      setIsVerifying(false);
     }
   };
 
-  // const handleConfirm = async () => {
-  //   if (!result) {
-  //     toast.error("No analysis result", {
-  //       description: "Please submit photos and analyze trash first.",
-  //     });
-  //     return;
-  //   }
-
-  //   setStep("confirm");
-
-  //   try {
-  //     // Here, you would make another API call to actually record the pickup
-  //     // This is a placeholder for the actual backend call to save the pickup
-  //     // For now, we simulate success and redirect
-  //     await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
-      
-  //     toast.success("Pickup recorded!", {
-  //       description: `You've earned ${result.points} points for this collection.`,
-  //     });
-  //     router.push("/dashboard");
-  //   } catch (error: any) // eslint-disable-line @typescript-eslint/no-explicit-any
-  //   {
-  //     console.error("Error confirming pickup:", error);
-  //     toast.error("Confirmation Failed", {
-  //       description:
-  //         error.message || "An error occurred while confirming pickup.",
-  //     });
-  //     setStep("analysis"); // Go back to analysis step on error
-  //   }
-  // };
+  const handleTryAgain = () => {
+    setImageFiles([]);
+    setImagePreviews([]);
+    setVerificationResult(null);
+    setStep("capture");
+  };
 
   return (
     <div className="container max-w-md py-8">
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold">Register Trash</h1>
+        <h1 className="text-2xl font-bold">Confirm Cleanup</h1>
         <p className="text-muted-foreground">
-          Take photos of the trash you&apos;ve found
+          Take photos of the cleaned area to verify your work
         </p>
       </div>
 
@@ -266,8 +187,8 @@ export default function NewPickupPage() {
           <div className="flex justify-between items-center">
             <CardTitle>
               {step === "capture" && "Capture Photos"}
-              {step === "analysis" && "Analyzing Trash"}
-              {step === "confirm" && "Confirming Registration"}
+              {step === "verifying" && "Verifying Cleanup"}
+              {step === "result" && "Verification Result"}
             </CardTitle>
             {step === "capture" && (
               <Badge variant="outline">{imageFiles.length}/3 photos</Badge>
@@ -275,9 +196,9 @@ export default function NewPickupPage() {
           </div>
           <CardDescription>
             {step === "capture" &&
-              "Take 3 photos of the trash from different angles"}
-            {step === "analysis" && "Our AI is analyzing your trash photos"}
-            {step === "confirm" && "Processing your trash registration"}
+              "Take 3 photos of the cleaned area from different angles"}
+            {step === "verifying" && "Our AI is analyzing your cleanup photos"}
+            {step === "result" && "Review the AI's assessment of your cleanup"}
           </CardDescription>
         </CardHeader>
 
@@ -304,7 +225,7 @@ export default function NewPickupPage() {
                           width={500}
                           height={500}
                           src={imagePreviews[index]}
-                          alt={`Trash photo ${index + 1}`}
+                          alt={`Clean photo ${index + 1}`}
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                         <Button
@@ -331,35 +252,12 @@ export default function NewPickupPage() {
                 className="w-full flex items-center gap-2"
               >
                 <Camera className="h-4 w-4" />
-                Take Photo
-              </Button>
-
-              <Button
-                onClick={getGeolocation}
-                variant="secondary"
-                className="w-full flex items-center gap-2"
-                disabled={isGettingLocation}
-              >
-                {isGettingLocation ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Getting Location...
-                  </>
-                ) : (
-                  <>
-                    <MapPin className="mr-2 h-4 w-4" />
-                    {currentLocation
-                      ? `Location: ${currentLocation.lat.toFixed(
-                          4
-                        )}, ${currentLocation.lng.toFixed(4)}`
-                      : "Get Current Location"}
-                  </>
-                )}
+                Take Photo of Cleaned Area
               </Button>
             </div>
           )}
 
-          {step === "analysis" && (
+          {step === "verifying" && (
             <div className="space-y-6">
               <div className="grid grid-cols-3 gap-2">
                 {imagePreviews.map((image, index) => (
@@ -372,7 +270,7 @@ export default function NewPickupPage() {
                   >
                     <Image
                       src={image}
-                      alt={`Trash photo ${index + 1}`}
+                      alt={`Clean photo ${index + 1}`}
                       width={500}
                       height={500}
                       className="w-full h-full object-cover"
@@ -382,7 +280,7 @@ export default function NewPickupPage() {
               </div>
 
               <div className="space-y-2 text-center py-4">
-                {isAnalyzing || isUploading ? ( // Show loader while analyzing or uploading
+                {isVerifying || isUploading ? (
                   <>
                     <div className="flex justify-center mb-2">
                       <div className="relative h-16 w-16">
@@ -401,20 +299,42 @@ export default function NewPickupPage() {
                         </svg>
                       </div>
                     </div>
-                    <div className="font-medium">Analyzing your trash...</div>
+                    <div className="font-medium">Verifying your cleanup...</div>
                     <div className="text-sm text-muted-foreground">
                       This will take a moment
                     </div>
                   </>
                 ) : (
                   <AnimatePresence>
-                    {analysisDone && result && (
+                    {verificationResult && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-4"
+                        className="space-y-4 text-center"
                       >
-                        <TrashAnalysisResult result={result} />
+                        {verificationResult.confidence > 50 ? (
+                          <div className="flex flex-col items-center justify-center text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-16 w-16 mb-4" />
+                            <h3 className="text-2xl font-semibold">Cleanup Confirmed!</h3>
+                            <p className="text-lg text-muted-foreground">
+                              AI Confidence: {verificationResult.confidence}%
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Great work! Redirecting to dashboard...
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-red-600 dark:text-red-400">
+                            <AlertCircle className="h-16 w-16 mb-4" />
+                            <h3 className="text-2xl font-semibold">Cleanup Not Confirmed</h3>
+                            <p className="text-lg text-muted-foreground">
+                              AI Confidence: {verificationResult.confidence}%
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              It seems the AI is not confident the area has been fully cleaned.
+                            </p>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -423,21 +343,30 @@ export default function NewPickupPage() {
             </div>
           )}
 
-          {step === "confirm" && (
+          {step === "result" && verificationResult && (
             <div className="space-y-6 py-4">
               <div className="text-center">
-                <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                  <Upload className="h-12 w-12 text-green-600 dark:text-green-400" />
-                </div>
+                {verificationResult.confidence > 50 ? (
+                  <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                    <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400" />
+                  </div>
+                ) : (
+                  <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                    <AlertCircle className="h-12 w-12 text-red-600 dark:text-red-400" />
+                  </div>
+                )}
                 <h3 className="mt-4 text-xl font-medium">
-                  Processing your registration
+                  {verificationResult.confidence > 50 ? "Cleanup Confirmed!" : "Cleanup Not Confirmed"}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Uploading your trash details...
+                  AI Confidence: {verificationResult.confidence}%
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {verificationResult.confidence > 50
+                    ? verificationResult.message || "Great job! Your cleanup has been successfully verified."
+                    : verificationResult.message || "The AI could not confirm that the area has been cleaned. Please try again."}
                 </p>
               </div>
-
-              <Progress value={65} className="h-2" />
             </div>
           )}
         </CardContent>
@@ -446,33 +375,42 @@ export default function NewPickupPage() {
           {step === "capture" && (
             <Button
               onClick={handleSubmitImages}
-              disabled={imageFiles.length < 3 || isUploading || isGettingLocation || !currentLocation}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+              disabled={imageFiles.length < 3 || isUploading || isVerifying}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600"
             >
-              {isUploading ? (
+              {isUploading || isVerifying ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+                  Submitting for Verification...
                 </>
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Submit Photos for Analysis
+                  Submit Photos for Verification
                 </>
               )}
             </Button>
           )}
 
-          {step === "analysis" && (
-            
+          {step === "result" && verificationResult && verificationResult.confidence <= 50 && (
             <Button
-              onClick={() => router.push('/collect')}
-              disabled={isAnalyzing || !analysisDone || !result}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+              onClick={handleTryAgain}
+              className="w-full bg-gradient-to-r from-orange-600 to-yellow-500 hover:from-orange-700 hover:to-yellow-600"
             >
-             Confirm trash pickup
+              <Camera className="mr-2 h-4 w-4" />
+              Try Again
             </Button>
           )}
+
+          {step === "result" && verificationResult && verificationResult.confidence > 50 && (
+             <Button
+             onClick={() => router.push('/dashboard')}
+             className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+           >
+            Go to Dashboard
+           </Button>
+          )}
+
         </CardFooter>
       </Card>
     </div>

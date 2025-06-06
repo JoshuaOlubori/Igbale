@@ -1,1 +1,0 @@
-ALTER TABLE "communities" RENAME COLUMN "boundary" TO "point_location";

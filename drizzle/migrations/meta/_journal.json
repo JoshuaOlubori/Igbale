@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1748093609811,
-      "tag": "0000_fine_machine_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1748100952035,
-      "tag": "0001_even_mephisto",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1748101510518,
-      "tag": "0002_unknown_siren",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1748108907966,
-      "tag": "0003_brainy_power_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1748108964416,
-      "tag": "0004_loose_whiplash",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1748194240144,
-      "tag": "0005_pink_hawkeye",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1748702571718,
-      "tag": "0006_wet_pyro",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1748718026199,
-      "tag": "0007_glossy_moira_mactaggert",
+      "when": 1749225548546,
+      "tag": "0000_magical_roughhouse",
       "breakpoints": true
     }
   ]
