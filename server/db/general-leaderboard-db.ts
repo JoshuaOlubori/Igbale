@@ -85,13 +85,11 @@ export async function getLeaderboardData(
     const communityIds = [...new Set(usersWithStats.map(u => u.communityId).filter(Boolean) as string[])];
 
     // Handle case where no community IDs are found to prevent SQL error with IN ()
-   
-
     const communities = communityIds.length > 0
       ? await db.select({
           id: CommunitiesTable.id,
           name: CommunitiesTable.name,
-        }).from(CommunitiesTable).where(sql`${CommunitiesTable.id} IN (${sql.join(communityIds.map(id => id), sql`,`)})`)
+        }).from(CommunitiesTable).where(sql`${CommunitiesTable.id} IN (${sql.join(communityIds.map(id => `'${id}'`), sql`,`)})`)
       : []; // If no community IDs, return empty array
 
     const communityMap = new Map(communities.map(c => [c.id, c.name]));

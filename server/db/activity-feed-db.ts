@@ -1,11 +1,9 @@
 // server/db/activity-feed.ts
 import { db } from "@/drizzle/db";
-import { ActivitiesTable, PickupsTable, 
-  // CommunitiesTable 
-} from "@/drizzle/schema";
+import { ActivitiesTable, PickupsTable, CommunitiesTable } from "@/drizzle/schema";
 import { CACHE_TAGS, revalidateDbCache, dbCache, getGlobalTag } from "@/lib/cache";
 import { ActivityFeedItem } from "@/lib/types"; // Import the new types
-import { eq, inArray } from "drizzle-orm"; // Import inArray for filtering
+import { eq } from "drizzle-orm";
 import { formatDistanceToNowStrict } from "date-fns"; // For formatting timestamps
 import { GeoJsonPoint } from "@/lib/types";
 
@@ -27,84 +25,36 @@ async function getRecentActivitiesInternal({
   communityId?: string;
   limit: number;
 }): Promise<ActivityFeedItem[]> {
-  let activities;
-
-  if (communityId) {
-    // First, find all pickup IDs that belong to the specified community
-    const pickupsInCommunity = await db.query.PickupsTable.findMany({
-      where: eq(PickupsTable.community_id, communityId),
-      columns: {
-        id: true,
-      },
-    });
-
-    const pickupIds = pickupsInCommunity.map((p) => p.id);
-
-    // If no pickups are found for the community, there will be no activities either
-    if (pickupIds.length === 0) {
-      return [];
-    }
-
-    // Then, query activities that are linked to these pickup IDs
-    activities = await db.query.ActivitiesTable.findMany({
-      where: inArray(ActivitiesTable.pickup_id, pickupIds), // Filter activities by pickup_id
-      orderBy: ({ created_at }, { desc }) => desc(created_at),
-      limit: limit,
-      with: {
-        user: {
-          columns: {
-            username: true,
-            avatar_url: true,
-          },
+  const activities = await db.query.ActivitiesTable.findMany({
+    where: communityId
+      ? eq(CommunitiesTable.id, communityId)
+      : undefined,
+    orderBy: ({ created_at }, { desc }) => desc(created_at),
+    limit: limit,
+    with: {
+      user: {
+        columns: {
+          username: true,
+          avatar_url: true,
         },
-        pickup: {
-          with: {
-            community: {
-              columns: {
-                name: true,
-                location: true,
-              },
+      },
+      pickup: {
+        with: {
+          community: {
+            columns: {
+              name: true,
+              location: true,
             },
           },
-          columns: {
-            location: true,
-            estimated_weight: true,
-            trash_type: true,
-          },
+        },
+        columns: {
+          location: true,
+          estimated_weight: true,
+          trash_type: true,
         },
       },
-    });
-  } else {
-    // If no communityId is provided, fetch recent activities without community filter
-    activities = await db.query.ActivitiesTable.findMany({
-      orderBy: ({ created_at }, { desc }) => desc(created_at),
-      limit: limit,
-      with: {
-        user: {
-          columns: {
-            username: true,
-            avatar_url: true,
-          },
-        },
-        pickup: {
-          with: {
-            community: {
-              columns: {
-                name: true,
-                location: true,
-              },
-            },
-          },
-          columns: {
-            location: true,
-            estimated_weight: true,
-            trash_type: true,
-          },
-        },
-      },
-    });
-  }
-
+    },
+  });
 
   return activities.map((activity) => {
     let locationString: string;
@@ -122,14 +72,7 @@ async function getRecentActivitiesInternal({
       locationString = "Unknown location";
     }
 
-    // Points are only awarded for 'trash_pickup' activities and should be based on points_awarded column directly
-    // This is assuming 'points_awarded' is populated in ActivitiesTable for 'trash_pickup' types.
-    // If points_awarded is only on PickupsTable, you'd need to adjust your schema or query.
-    // Based on the 'general-leaderboard.ts' provided earlier, it seems `points_awarded` might be on ActivitiesTable.
-    // If not, we'd need to adjust how points are calculated here or ensure they are stored on the activity.
-    const points = activity.type === 'trash_pickup' ? (activity as any).points_awarded || 0 : 0; 
-    // Cast to any to access points_awarded
-
+    const points = activity.type === 'trash_pickup' && activity.pickup?.estimated_weight ? Math.round(activity.pickup.estimated_weight * 10) : 0;
 
     return {
       id: activity.id,
