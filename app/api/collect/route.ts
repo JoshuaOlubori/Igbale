@@ -6,16 +6,24 @@ import { confirmTrashCollection } from "@/server/actions/collect"; // New server
 import { currentUser } from "@clerk/nextjs/server"; // To get current user ID
 import { db } from "@/drizzle/db"; // Assuming you have your Drizzle DB instance exported as 'db'
 import { UsersTable } from "@/drizzle/schema"; // Import UsersTable to get user's internal ID
-import { env } from "@/data/env/client";
 import { eq } from "drizzle-orm"; // IMPORT THIS LINE: Import eq for database queries
+import { env } from "@/data/env/client";
 
 // Get max image size from env or default to 4.5MB
 const MAX_IMAGE_SIZE_MB = Number(env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || "4.5");
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { pickupId: string } } // Accept dynamic parameter
+) {
   try {
     const { images: base64Images } = await request.json();
+    const { pickupId } = params; // Extract pickupId from params
+
+    if (!pickupId) {
+      return NextResponse.json({ error: "Pickup ID is missing." }, { status: 400 });
+    }
 
     // Authenticate user to get userId
     const clerkUser = await currentUser();
@@ -121,7 +129,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. If AI confidence is high enough, proceed to confirm cleanup
-    const result = await confirmTrashCollection(userId, confidence); // Pass confidence to action
+    // Pass pickupId to confirmTrashCollection
+    const result = await confirmTrashCollection(userId, pickupId, confidence);
 
     if (result.error) {
       return NextResponse.json({ error: result.error, message: result.error }, { status: 400 });

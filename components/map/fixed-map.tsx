@@ -256,7 +256,7 @@ export default function MapPage({
                 pickup.reported_at ? new Date(pickup.reported_at).toLocaleString() : "N/A"
               }</p>
             </div>
-            <a href="/pickup/collect/${
+            <a href="/collect/${
               pickup.id
             }" class="block w-full bg-green-600 hover:bg-green-700 text-white text-center py-2 px-4 rounded-md text-sm transition-colors duration-200 ease-in-out">
               Collect This Trash

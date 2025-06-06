@@ -1,7 +1,7 @@
-// app/collect/page.tsx
+// app/collect/[pickupId]/page.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, use } from "react"; // Import 'use' from React
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,8 +25,17 @@ interface CleanupVerificationResult {
   message?: string; // Add message for display
 }
 
-export default function CollectPickupPage() {
+interface CollectPickupPageProps {
+  params: Promise<{
+    pickupId: string; // The dynamic pickupId from the URL (wrapped in a Promise)
+  }>;
+}
+
+export default function CollectPickupPage({ params: paramsPromise }: CollectPickupPageProps) {
+  // Unwrap the params promise using React.use()
+  const params = use(paramsPromise); // Use React.use to unwrap the promise
   const router = useRouter();
+  const { pickupId } = params; // Extract pickupId from the unwrapped params object
 
   const [step, setStep] = useState<"capture" | "verifying" | "result">(
     "capture"
@@ -114,6 +123,13 @@ export default function CollectPickupPage() {
       return;
     }
 
+    if (!pickupId) {
+      toast.error("Pickup ID missing", {
+        description: "Could not identify which trash report to verify. Please navigate from the map.",
+      });
+      return;
+    }
+
     setIsUploading(true);
     setIsVerifying(true); // Start verification loading state
     setStep("verifying"); // Move to verifying step
@@ -124,8 +140,8 @@ export default function CollectPickupPage() {
         imageFiles.map((file) => convertFileToBase64(file))
       );
 
-      // Make API call to /api/collect
-      const response = await fetch("/api/collect", {
+      // Make API call to /api/collect/{pickupId}
+      const response = await fetch(`/api/collect/${pickupId}`, { // Pass pickupId in the URL
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -178,7 +194,7 @@ export default function CollectPickupPage() {
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">Confirm Cleanup</h1>
         <p className="text-muted-foreground">
-          Take photos of the cleaned area to verify your work
+          Take photos of the cleaned area to verify your work for Pickup ID: {pickupId}
         </p>
       </div>
 

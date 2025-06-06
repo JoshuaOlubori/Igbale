@@ -198,7 +198,7 @@ Consider factors like:
 - Overall tidiness improvement
 - Consistency between before and after scenes
 
-Respond in JSON format only:
+It is important that you respond in JSON format only:
 {
   "confidence": number
 }`;
