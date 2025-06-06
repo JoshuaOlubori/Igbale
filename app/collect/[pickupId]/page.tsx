@@ -1,7 +1,7 @@
 // app/collect/[pickupId]/page.tsx
 "use client";
 
-import { useState, useRef, useEffect, use } from "react"; // Import 'use' from React
+import { useState, useRef, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,28 +27,26 @@ interface CleanupVerificationResult {
 
 interface CollectPickupPageProps {
   params: Promise<{
-    pickupId: string; // The dynamic pickupId from the URL (wrapped in a Promise)
+    pickupId: string;
   }>;
 }
 
 export default function CollectPickupPage({ params: paramsPromise }: CollectPickupPageProps) {
-  // Unwrap the params promise using React.use()
-  const params = use(paramsPromise); // Use React.use to unwrap the promise
+  const params = use(paramsPromise);
   const router = useRouter();
-  const { pickupId } = params; // Extract pickupId from the unwrapped params object
+  const { pickupId } = params;
 
   const [step, setStep] = useState<"capture" | "verifying" | "result">(
     "capture"
   );
-  const [imageFiles, setImageFiles] = useState<File[]>([]); // Store File objects
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]); // Store Blob URLs for previews
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<CleanupVerificationResult | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Effect to clean up Blob URLs when images change or component unmounts
   useEffect(() => {
     return () => {
       imagePreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -62,7 +60,7 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
       });
       return;
     }
-    fileInputRef.current?.click(); // Programmatically click the hidden file input
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,7 +78,7 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         toast.error("Image too large", {
           description: `"${file.name}" exceeds the 10MB limit.`,
         });
-        continue; // Skip this file
+        continue;
       }
 
       if (imageFiles.length + newFiles.length < 3) {
@@ -90,14 +88,13 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         toast.warning("Maximum photos reached", {
           description: "You can only upload 3 photos for cleanup verification.",
         });
-        break; // Stop adding files
+        break;
       }
     }
 
     setImageFiles((prev) => [...prev, ...newFiles]);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
 
-    // Reset the input value to allow selecting the same file again if needed
     event.target.value = "";
   };
 
@@ -131,17 +128,15 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
     }
 
     setIsUploading(true);
-    setIsVerifying(true); // Start verification loading state
-    setStep("verifying"); // Move to verifying step
+    setIsVerifying(true);
+    setStep("verifying");
 
     try {
-      // Convert all image files to Base64
       const base64Images = await Promise.all(
         imageFiles.map((file) => convertFileToBase64(file))
       );
 
-      // Make API call to /api/collect/{pickupId}
-      const response = await fetch(`/api/collect/${pickupId}`, { // Pass pickupId in the URL
+      const response = await fetch(`/api/collect/${pickupId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -151,31 +146,39 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         }),
       });
 
-      const apiResult: CleanupVerificationResult = await response.json();
-      setVerificationResult(apiResult);
+      // Check if the response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const apiResult: CleanupVerificationResult = await response.json();
+        setVerificationResult(apiResult);
 
-      if (!response.ok || (apiResult.confidence && apiResult.confidence <= 50)) {
-        // If response is not ok or confidence is low, show error toast
-        toast.error("Cleanup Not Confirmed", {
-          description: apiResult.message || "The AI could not confirm that the area has been cleaned. Please try again.",
-        });
-        setStep("result"); // Show result screen for "Try again" option
+        if (!response.ok || (apiResult.confidence && apiResult.confidence <= 50)) {
+          toast.error("Cleanup Not Confirmed", {
+            description: apiResult.message || "The AI could not confirm that the area has been cleaned. Please try again.",
+          });
+          setStep("result");
+        } else {
+          toast.success("Cleanup Confirmed!", {
+            description: apiResult.message || "Great job! Your cleanup has been successfully verified.",
+          });
+          router.push("/dashboard");
+        }
       } else {
-        // Successful cleanup confirmation
-        toast.success("Cleanup Confirmed!", {
-          description: apiResult.message || "Great job! Your cleanup has been successfully verified.",
-        });
-        router.push("/dashboard"); // Redirect to dashboard on success
+        // If the response is not JSON, it's likely an HTML error page
+        const errorText = await response.text();
+        console.error("Server returned non-JSON response:", errorText);
+        throw new Error("Received unexpected response from server. It might be an HTML error page. Check server logs for details.");
       }
 
-    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    } catch (error: any)  // eslint-disable-line @typescript-eslint/no-explicit-any
+    {
       console.error("Error during image submission or verification:", error);
       toast.error("Verification Failed", {
         description:
           error.message ||
           "An error occurred during cleanup verification. Please try again.",
       });
-      setStep("capture"); // Go back to capture step on error
+      setStep("capture");
     } finally {
       setIsUploading(false);
       setIsVerifying(false);

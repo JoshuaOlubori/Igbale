@@ -2,11 +2,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { processImage } from "@/lib/image-downsizer";
 import { verifyTrashCleanup } from "@/lib/ai-service";
-import { confirmTrashCollection } from "@/server/actions/collect"; // New server action
-import { currentUser } from "@clerk/nextjs/server"; // To get current user ID
-import { db } from "@/drizzle/db"; // Assuming you have your Drizzle DB instance exported as 'db'
-import { UsersTable } from "@/drizzle/schema"; // Import UsersTable to get user's internal ID
-import { eq } from "drizzle-orm"; // IMPORT THIS LINE: Import eq for database queries
+import { confirmTrashCollection } from "@/server/actions/collect";
+import { currentUser } from "@clerk/nextjs/server";
+import { db } from "@/drizzle/db";
+import { UsersTable } from "@/drizzle/schema";
+import { eq } from "drizzle-orm";
 import { env } from "@/data/env/client";
 
 // Get max image size from env or default to 4.5MB
@@ -15,35 +15,35 @@ const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { pickupId: string } } // Accept dynamic parameter
+  { params }: { params: { pickupId: string } }
 ) {
   try {
     const { images: base64Images } = await request.json();
-    const { pickupId } = params; // Extract pickupId from params
+    // Declare pickupId here to ensure its scope covers the entire try block
+    const { pickupId } = params;
 
     if (!pickupId) {
       return NextResponse.json({ error: "Pickup ID is missing." }, { status: 400 });
     }
 
-    // Authenticate user to get userId
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json({ error: "User not authenticated." }, { status: 401 });
     }
 
-    // Get the internal database user ID
     const userInDb = await db.query.UsersTable.findFirst({
       where: eq(UsersTable.clerkUserId, clerkUser.id),
       columns: { id: true },
     });
 
+    // Declare userId here to ensure its scope covers the entire try block
+    let userId: string;
     if (!userInDb?.id) {
       return NextResponse.json({ error: "User not found in database." }, { status: 404 });
+    } else {
+      userId = userInDb.id;
     }
 
-    const userId = userInDb.id;
-
-    // Validate images before processing
     if (
       !base64Images ||
       !Array.isArray(base64Images) ||
@@ -55,8 +55,10 @@ export async function POST(
       );
     }
 
-    // Validate image format and create filtered array
+    // Declare validatedImages here to ensure its scope covers the subsequent loop and checks
     const validatedImages = base64Images.filter((image) => {
+      // Fix: Use a correct regex literal for the match method.
+      // The double backslash was causing the 'not callable' error.
       return (
         typeof image === "string" &&
         image.match(/^data:image\/(jpeg|png|gif|webp);base64,/)
@@ -77,11 +79,9 @@ export async function POST(
       );
     }
 
-    // Process and validate images
     const processedImages: string[] = [];
     for (const base64Image of validatedImages) {
       try {
-        // Convert base64 to File object
         const matches = base64Image.match(/^data:(.+);base64,(.+)$/);
         if (!matches) continue;
 
@@ -91,15 +91,14 @@ export async function POST(
           type: mimeType,
         });
 
-        // Process the image
         const processedBuffer = await processImage(file, MAX_IMAGE_SIZE_BYTES);
         const processedBase64 = `data:${mimeType};base64,${processedBuffer.toString(
           "base64"
         )}`;
         processedImages.push(processedBase64);
       } catch (error) {
-        console.error("Error processing image:", error);
-        continue;
+        console.error("Error processing single image:", error);
+        // Do not return here, continue processing other images
       }
     }
 
@@ -110,26 +109,23 @@ export async function POST(
       );
     }
 
-    // 1. Call AI verification with processed images and user ID
     const { confidence, error: aiError } = await verifyTrashCleanup(userId, processedImages);
 
     if (aiError) {
+      // If AI service returns an error, return it as a 500
       return NextResponse.json({ error: aiError, message: "AI verification failed." }, { status: 500 });
     }
 
-    // If confidence is 50 or less, indicate that cleaning was not confirmed
     if (confidence <= 50) {
       return NextResponse.json(
         {
           confidence,
           message: "The AI could not confirm that the area has been cleaned.",
         },
-        { status: 200 } // Still a 200 OK response, but with specific status indicating unconfirmed
+        { status: 200 }
       );
     }
 
-    // 2. If AI confidence is high enough, proceed to confirm cleanup
-    // Pass pickupId to confirmTrashCollection
     const result = await confirmTrashCollection(userId, pickupId, confidence);
 
     if (result.error) {
@@ -137,12 +133,19 @@ export async function POST(
     }
 
     return NextResponse.json({ ...result, message: "Cleanup successfully confirmed!", confidence });
-  } catch (error) {
-    console.error("Error in /api/collect route handler:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred.";
+  } catch (error: any) // eslint-disable-line @typescript-eslint/no-explicit-any
+  { // Explicitly type error as 'any' for broader error catching
+    console.error("Unhandled error in /api/collect route handler:", error);
+    let errorMessage = "An unexpected server error occurred.";
+    if (error instanceof Error) {
+        errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+    }
+
+    // Always return a JSON response, even for unexpected errors
     return NextResponse.json(
-      { error: `Failed to process cleanup verification: ${errorMessage}`, message: `Failed to process cleanup verification: ${errorMessage}` },
+      { error: `Server Error: ${errorMessage}`, message: `Server Error: ${errorMessage}` },
       { status: 500 }
     );
   }
