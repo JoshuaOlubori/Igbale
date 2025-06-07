@@ -4,19 +4,20 @@
 import { db } from "@/drizzle/db";
 import { ActivitiesTable, PickupsTable, UsersTable } from "@/drizzle/schema";
 import { eq, sql } from "drizzle-orm";
-import { revalidatePath, revalidateTag } from "next/cache"; // Import revalidatePath and revalidateTag
-import { CACHE_TAGS, getGlobalTag } from "@/lib/cache"; // Assuming these are defined in your cache utility
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS, getGlobalTag } from "@/lib/cache";
+import { calculatePoints } from "@/lib/points"; // Import the new points calculation function
 
 export async function confirmTrashCollection(
   userId: string,
-  pickupId: string, // Accept pickupId as a direct parameter
-  confidence: number
+  pickupId: string,
+  // confidence: number
 ): Promise<{ success: boolean; pickupId?: string; error?: string }> {
   try {
     // 1. Verify the pickup exists and is in a 'pending' state
     const existingPickup = await db.query.PickupsTable.findFirst({
       where: eq(PickupsTable.id, pickupId),
-      columns: { id: true, status: true, community_id: true }
+      columns: { id: true, status: true, estimated_weight: true, community_id: true } // Retrieve estimated_weight
     });
 
     if (!existingPickup) {
@@ -27,45 +28,41 @@ export async function confirmTrashCollection(
       return { success: false, error: "Pickup is not in a pending state." };
     }
 
-    // Optional: You might want to verify that this user is associated with this pickup
-    // For instance, by checking if they are the original reporter (if that's a strict requirement)
-    // or simply allowing any authenticated user to collect a pending pickup.
-    // Given the previous AI step validates against the user's latest report, this should be fine.
+    // 2. Calculate points for this pickup
+    const pointsEarned = calculatePoints(existingPickup.estimated_weight || 0); // Use 0 if weight is null/undefined
 
-    // 2. Update the status of the corresponding pickup in the PickupsTable to 'done'
+    // 3. Update the status of the corresponding pickup in the PickupsTable to 'done'
+    // AND populate the points_awarded field
     const [updatedPickup] = await db
       .update(PickupsTable)
-      .set({ status: "done" })
+      .set({ status: "done", points_awarded: pointsEarned }) // Set points_awarded
       .where(eq(PickupsTable.id, pickupId))
-      .returning({ id: PickupsTable.id, communityId: PickupsTable.community_id });
+      .returning({ id: PickupsTable.id, communityId: PickupsTable.community_id, pointsAwarded: PickupsTable.points_awarded });
 
     if (!updatedPickup) {
-      return { success: false, error: "Failed to update pickup status." };
+      return { success: false, error: "Failed to update pickup status and award points." };
     }
 
-    // 3. Add a new activity to the ActivitiesTable with type 'trash_pickup'
+    // 4. Add a new activity to the ActivitiesTable with type 'trash_pickup'
     const [newActivity] = await db.insert(ActivitiesTable).values({
       user_id: userId,
       type: "trash_pickup",
-      pickup_id: updatedPickup.id, // Use the confirmed pickupId
+      pickup_id: updatedPickup.id,
     }).returning({ id: ActivitiesTable.id });
 
     if (!newActivity) {
       return { success: false, error: "Failed to record trash pickup activity." };
     }
 
-    // 4. Update user points (optional, but good for gamification)
-    // You might want to calculate points based on weight or AI confidence,
-    // For simplicity, let's just add a fixed amount or confidence as points
-    const pointsEarned = Math.round(confidence * 0.5); // Example: 50 points for 100% confidence
+    // 5. Update user's total points in UsersTable
     await db.update(UsersTable)
-       .set({ points: sql`${UsersTable.points} + ${pointsEarned}` }) // Increment points
+      .set({ points: sql`${UsersTable.points} + ${pointsEarned}` })
       .where(eq(UsersTable.id, userId));
 
-    // 5. Revalidate caches
-    revalidatePath("/dashboard"); // Revalidate dashboard to show updated activities/points
-    revalidateTag(getGlobalTag(CACHE_TAGS.activities)); // Revalidate global activity feed
-    revalidateTag(`${CACHE_TAGS.pickups}:${updatedPickup.id}`); // Revalidate specific pickup cache
+    // 6. Revalidate caches
+    revalidatePath("/dashboard");
+    revalidateTag(getGlobalTag(CACHE_TAGS.activities));
+    revalidateTag(`${CACHE_TAGS.pickups}:${updatedPickup.id}`);
 
     return { success: true, pickupId: updatedPickup.id };
   } catch (error) {

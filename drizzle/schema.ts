@@ -86,6 +86,7 @@ export const PickupsTable = pgTable(
     estimated_weight: real("estimated_weight").notNull().default(0),
     trash_type: varchar("trash_type", { length: 255 }).notNull(),
     status: StatusEnum("status").notNull().default("pending"),
+    points_awarded: integer("points_awarded").notNull().default(0),
     // removed reported_at and picked_by, they will be handled by ActivitiesTable entries
   },
   (table) => {

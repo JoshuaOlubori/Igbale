@@ -1,13 +1,11 @@
 // server/db/activity-feed.ts
 import { db } from "@/drizzle/db";
-import { ActivitiesTable, PickupsTable, 
-  // CommunitiesTable 
-} from "@/drizzle/schema";
+import { ActivitiesTable, PickupsTable } from "@/drizzle/schema";
 import { CACHE_TAGS, revalidateDbCache, dbCache, getGlobalTag } from "@/lib/cache";
 import { ActivityFeedItem } from "@/lib/types"; // Import the new types
 import { eq, inArray } from "drizzle-orm"; // Import inArray for filtering
 import { formatDistanceToNowStrict } from "date-fns"; // For formatting timestamps
-import { GeoJsonPoint } from "@/lib/types";
+import { GeoJsonPoint } from "@/lib/types"; // Assuming GeoJsonPoint has 'name' or 'coordinates'
 
 export async function getRecentActivities(
   communityId?: string, // Optional: filter by community
@@ -20,6 +18,7 @@ export async function getRecentActivities(
 
   return cacheFn({ communityId, limit });
 }
+
 async function getRecentActivitiesInternal({
   communityId,
   limit,
@@ -60,16 +59,19 @@ async function getRecentActivitiesInternal({
         pickup: {
           with: {
             community: {
+              // Fetch both name and location (varchar) from CommunitiesTable
               columns: {
                 name: true,
-                location: true,
+                location: true, // This is the varchar location string
               },
             },
           },
           columns: {
-            location: true,
+            location: true, // This is the JSONB location for the specific pickup
             estimated_weight: true,
             trash_type: true,
+            points_awarded: true,
+            status: true,
           },
         },
       },
@@ -89,16 +91,19 @@ async function getRecentActivitiesInternal({
         pickup: {
           with: {
             community: {
+              // Fetch both name and location (varchar) from CommunitiesTable
               columns: {
                 name: true,
-                location: true,
+                location: true, // This is the varchar location string
               },
             },
           },
           columns: {
-            location: true,
+            location: true, // This is the JSONB location for the specific pickup
             estimated_weight: true,
             trash_type: true,
+            points_awarded: true,
+            status: true,
           },
         },
       },
@@ -109,26 +114,26 @@ async function getRecentActivitiesInternal({
   return activities.map((activity) => {
     let locationString: string;
 
-    // Safely check if pickup.location exists AND is an object AND has coordinates
-    // We'll cast it to the GeoJsonPoint type for type safety after the check
+    // Prioritize pickup-specific JSONB location's 'name' or coordinates
     if (activity.pickup?.location && typeof activity.pickup.location === 'object' && 'coordinates' in activity.pickup.location) {
         const pickupLocation = activity.pickup.location as GeoJsonPoint;
         locationString = pickupLocation.name || `Lat: ${pickupLocation.coordinates[1].toFixed(2)}, Lon: ${pickupLocation.coordinates[0].toFixed(2)}`;
-    } else if (activity.pickup?.community?.location && typeof activity.pickup.community.location === 'object' && 'coordinates' in activity.pickup.community.location) {
-        const communityLocation = activity.pickup.community.location as GeoJsonPoint;
-        locationString = communityLocation.name || `Lat: ${communityLocation.coordinates[1].toFixed(2)}, Lon: ${communityLocation.coordinates[0].toFixed(2)}`;
     }
+    // Fallback to community's VARCHAR location string
+    else if (activity.pickup?.community?.location) {
+        locationString = activity.pickup.community.location;
+    }
+    // Fallback to community's name
+    else if (activity.pickup?.community?.name) {
+        locationString = activity.pickup.community.name;
+    }
+    // Finally, fallback to unknown
     else {
       locationString = "Unknown location";
     }
 
-    // Points are only awarded for 'trash_pickup' activities and should be based on points_awarded column directly
-    // This is assuming 'points_awarded' is populated in ActivitiesTable for 'trash_pickup' types.
-    // If points_awarded is only on PickupsTable, you'd need to adjust your schema or query.
-    // Based on the 'general-leaderboard.ts' provided earlier, it seems `points_awarded` might be on ActivitiesTable.
-    // If not, we'd need to adjust how points are calculated here or ensure they are stored on the activity.
-    const points = activity.type === 'trash_pickup' ? (activity as any).points_awarded || 0 : 0; 
-    // Cast to any to access points_awarded
+    // Points are now read directly from pickup.points_awarded if it's a collection
+    const points = activity.type === 'trash_pickup' ? (activity.pickup?.points_awarded || 0) : 0;
 
 
     return {

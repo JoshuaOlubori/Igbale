@@ -17,7 +17,7 @@ export default function Home() {
         </div>
       </div>
       
-      <div className="py-12 md:py-24 bg-muted/50">
+      <div className="py-9 md:py-18 bg-muted/50">
         <div className="container px-4 md:px-6">
           <FeatureSection />
         </div>

@@ -3,12 +3,12 @@ import { db } from "@/drizzle/db";
 import {
   UsersTable,
   ActivitiesTable,
-  PickupsTable,
+  PickupsTable, // Import PickupsTable
   ActivityTypeEnum,
- //  CommunitiesTable, 
+ //  CommunitiesTable,
 } from "@/drizzle/schema";
-import { eq, sum, and, gte, sql } from "drizzle-orm";
-import { CACHE_TAGS, dbCache, getGlobalTag, getIdTag, ValidTags } from "@/lib/cache"; // Import ValidTags
+import { eq, sum, and, gte, sql, desc } from "drizzle-orm";
+import { CACHE_TAGS, dbCache, getGlobalTag, getIdTag, ValidTags } from "@/lib/cache";
 import { LeaderboardEntry } from "@/lib/types";
 import { subDays, subMonths, subYears } from "date-fns"; // For date calculations
 
@@ -38,7 +38,6 @@ export async function getLeaderboard(
   return cacheFn({ timeframe, communityId });
 }
 
-// ... (rest of your getLeaderboardInternal and other functions) ...
 async function getLeaderboardInternal({
   timeframe,
   communityId,
@@ -66,7 +65,8 @@ async function getLeaderboardInternal({
   const userActivityStats = db
     .select({
       userId: ActivitiesTable.user_id,
-      totalWeight: sum(PickupsTable.estimated_weight).mapWith(Number).as('total_weight'),
+      // Sum points from PickupsTable instead of estimated_weight
+      totalPointsEarned: sum(PickupsTable.points_awarded).mapWith(Number).as('total_points_earned'),
       collectionCount: sql<number>`count(${ActivitiesTable.id})`.as('collection_count'),
     })
     .from(ActivitiesTable)
@@ -88,20 +88,28 @@ async function getLeaderboardInternal({
       id: UsersTable.id,
       name: UsersTable.username,
       avatar: UsersTable.avatar_url,
-      points: UsersTable.points, // Use overall user points
+      // Use overall user points (UsersTable.points) as the primary source for leaderboard
+      // and collections from userActivityStats.
+      points: UsersTable.points,
       collections: userActivityStats.collectionCount,
-      calculatedPoints: userActivityStats.totalWeight,
     })
     .from(UsersTable)
     .innerJoin(userActivityStats, eq(UsersTable.id, userActivityStats.userId))
-    .orderBy((cols) => sql`${cols.calculatedPoints} DESC`)
+    // Order by the overall user points, not just points earned in the timeframe for consistency
+    .orderBy((cols) => desc(cols.points))
     .limit(10);
 
   return leaderboardUsers.map((user) => ({
     id: user.id,
     name: user.name,
     avatar: user.avatar,
-    points: Math.round(user.calculatedPoints * 10),
+    // Community name will need to be fetched separately if not part of this join,
+    // or passed from the `getLeaderboardPageData` if that's the primary entry.
+    // For now, it might be undefined unless `UsersTable` is joined with `CommunitiesTable`.
+    // Given the `LeaderboardEntry` type, `community` is required.
+    // Assuming `getLeaderboardPageData` handles joining communities for display.
+    community: "No Community", // Placeholder or fetch if needed here
+    points: user.points || 0,
     collections: user.collections || 0,
   }));
 }

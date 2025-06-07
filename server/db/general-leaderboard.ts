@@ -1,10 +1,10 @@
 // server/db/general-leaderboard.ts
 import { db } from "@/drizzle/db";
-import { UsersTable, ActivitiesTable, CommunitiesTable, 
-   // ActivityTypeEnum 
-} from "@/drizzle/schema";
-import { eq, 
-   // sum, 
+import { UsersTable, ActivitiesTable, CommunitiesTable, PickupsTable
+   // ActivityTypeEnum
+} from "@/drizzle/schema"; // Import PickupsTable
+import { eq,
+   // sum,
     and, gte, sql } from "drizzle-orm";
 import { startOfWeek, startOfMonth, startOfYear } from "date-fns"; // Only need start dates here, not end dates for gte
 
@@ -61,12 +61,13 @@ export async function getLeaderboardData(
         name: UsersTable.username,
         avatar: UsersTable.avatar_url,
         communityId: UsersTable.community_id,
-        // CORRECTED: Ensure CASE WHEN is correctly formed within sql and acts as an argument to sum/count
-        totalPoints: sql<number>`SUM(CASE WHEN ${ActivitiesTable.type} = 'trash_pickup' THEN 10 ELSE 0 END)`.as('total_points'), // Changed 1 to 0 for ELSE condition in SUM
-        totalCollections: sql<number>`COUNT(CASE WHEN ${ActivitiesTable.type} = 'trash_pickup' THEN 1 ELSE NULL END)`.as('total_collections'),
+        // Sum points from PickupsTable based on linked activities
+        totalPoints: sql<number>`SUM(CASE WHEN ${ActivitiesTable.type} = 'trash_pickup' THEN ${PickupsTable.points_awarded} ELSE 0 END)`.as('total_points'),
+        totalCollections: sql<number>`COUNT(DISTINCT CASE WHEN ${ActivitiesTable.type} = 'trash_pickup' THEN ${ActivitiesTable.pickup_id} END)`.as('total_collections'),
       })
       .from(UsersTable)
       .leftJoin(ActivitiesTable, eq(UsersTable.id, ActivitiesTable.user_id))
+      .leftJoin(PickupsTable, eq(ActivitiesTable.pickup_id, PickupsTable.id)) // Join with PickupsTable
       .where(
         and(
           gte(ActivitiesTable.created_at, startDate), // Filter by timeframe
@@ -76,7 +77,7 @@ export async function getLeaderboardData(
         )
       )
       .groupBy(UsersTable.id, UsersTable.username, UsersTable.avatar_url, UsersTable.community_id)
-      .orderBy(sql`total_points DESC`)
+      .orderBy(sql`total_points DESC NULLS LAST`) // Order by points, nulls last
       .limit(10);
 
     const usersWithStats = await leaderboardQuery;
@@ -85,8 +86,6 @@ export async function getLeaderboardData(
     const communityIds = [...new Set(usersWithStats.map(u => u.communityId).filter(Boolean) as string[])];
 
     // Handle case where no community IDs are found to prevent SQL error with IN ()
-   
-
     const communities = communityIds.length > 0
       ? await db.select({
           id: CommunitiesTable.id,
