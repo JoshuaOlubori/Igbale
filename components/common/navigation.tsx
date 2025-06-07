@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Menu, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
@@ -72,7 +72,7 @@ export default function Navigation() {
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-4">
-            <ModeToggle />
+           
             <SignedOut>
               <Button asChild variant="outline" size="sm">
                 <Link href="/sign-in">Login</Link>
@@ -86,8 +86,15 @@ export default function Navigation() {
               </Button>
             </SignedOut>
             <SignedIn>
+              <Button asChild variant="ghost" size="sm" className="gap-2">
+                <Link href="/dashboard">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
               <UserButton />
             </SignedIn>
+             <ModeToggle />
           </div>
 
           <Sheet open={open} onOpenChange={setOpen}>
@@ -147,6 +154,7 @@ export default function Navigation() {
                       <Link href="/sign-up">Sign Up</Link>
                     </Button>
                   </SignedOut>
+
                   <SignedIn>
                     <UserButton />
                   </SignedIn>

@@ -1,4 +1,4 @@
-// app/api/collect/route.ts
+// app/api/collect/[pickupId]/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { processImage } from "@/lib/image-downsizer";
 import { verifyTrashCleanup } from "@/lib/ai-service";
@@ -15,12 +15,12 @@ const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { pickupId: string } }
+  context: { params: Promise<{ pickupId: string }> }
 ) {
   try {
     const { images: base64Images } = await request.json();
-    // Declare pickupId here to ensure its scope covers the entire try block
-    const { pickupId } = params;
+    // Await the params promise
+    const { pickupId } = await context.params;
 
     if (!pickupId) {
       return NextResponse.json({ error: "Pickup ID is missing." }, { status: 400 });
@@ -126,7 +126,7 @@ export async function POST(
       );
     }
 
-    const result = await confirmTrashCollection(userId, pickupId, confidence);
+    const result = await confirmTrashCollection(userId, pickupId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error, message: result.error }, { status: 400 });

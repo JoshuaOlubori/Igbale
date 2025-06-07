@@ -8,7 +8,7 @@ import { ActivitiesTable,
 import { desc, eq } from "drizzle-orm"; // Import desc and eq for querying
 
 const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-console.log("AI service initialized with API key:", env.GEMINI_API_KEY);
+// console.log("AI service initialized with API key:", env.GEMINI_API_KEY);
 export interface TrashAnalysisResult {
   estimated_weight: number; // in kg
   trash_type: string;

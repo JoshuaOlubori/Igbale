@@ -1,3 +1,4 @@
+// app/onboarding/community/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -14,9 +15,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CommunityMap from "@/components/onboarding/community-map";
-// import CommunityList from "@/components/onboarding/community-list";
-import { MapPin, Users } from "lucide-react";
-import { createCommunity } from "@/server/actions/communities";
+import CommunityList from "@/components/onboarding/community-list";
+import { MapPin, Users, Loader2 } from "lucide-react"; // Added Loader2 for loading state
+import { createCommunity, joinCommunity } from "@/server/actions/communities"; // Import joinCommunity
 import { getReverseGeocode } from "@/lib/utils";
 
 export default function CommunitySelectionPage() {
@@ -25,7 +26,6 @@ export default function CommunitySelectionPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null
   );
-  // const [drawingBoundary, setDrawingBoundary] = useState(false);
   const [communityName, setCommunityName] = useState("");
   const [communityLocation, setCommunityLocation] = useState<{
     lat: number;
@@ -34,14 +34,15 @@ export default function CommunitySelectionPage() {
   const [communityRadius, setCommunityRadius] = useState(1);
   const [communityDescription, setCommunityDescription] = useState("");
   const [communityAddress, setCommunityAddress] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For create community loading
+  const [isJoining, setIsJoining] = useState(false); // For joining community loading
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  const handleJoinCommunity = () => {
+  const handleJoinCommunity = async () => {
     if (!selectedCommunity) {
       toast.warning("No community selected", {
         description: "Please select a community to join.",
@@ -49,26 +50,29 @@ export default function CommunitySelectionPage() {
       return;
     }
 
-    // Simulate successful community join
+    setIsJoining(true); // Start loading for join action
+    try {
+      const result = await joinCommunity(selectedCommunity); // Call the server action
 
-    toast.warning("Community joined!", {
-      description: "You've successfully joined the community.",
-    });
-    router.push("/dashboard");
+      if (result.error) {
+        toast.error("Failed to join community", {
+          description: result.message,
+        });
+      } else {
+        toast.success("Community Joined!", {
+          description: result.message,
+        });
+        router.push("/dashboard"); // Redirect on success
+      }
+    } catch (error) {
+      console.error("Client-side error joining community:", error);
+      toast.error("An unexpected error occurred.", {
+        description: "Please try again.",
+      });
+    } finally {
+      setIsJoining(false); // End loading
+    }
   };
-
-  // const getReverseGeocode = async (lat: number, lng: number) => {
-  //   try {
-  //     const response = await fetch(
-  //       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
-  //     );
-  //     const data = await response.json();
-  //     return data.features[0]?.place_name || "";
-  //   } catch (error) {
-  //     console.error("Error getting address:", error);
-  //     return "";
-  //   }
-  // };
 
   const handleCreateCommunity = async () => {
     if (!communityName || !communityLocation) {
@@ -78,10 +82,8 @@ export default function CommunitySelectionPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(true); // Start loading for create action
     try {
-      // Get address if not already set, or if the user updated the location on the map
-      // Always try to get the address based on the final communityLocation
       const address = await getReverseGeocode(
         communityLocation.lat,
         communityLocation.lng
@@ -89,7 +91,7 @@ export default function CommunitySelectionPage() {
 
       const result = await createCommunity({
         name: communityName,
-        location: address, // Use the dynamically obtained address
+        location: address,
         description: communityDescription,
         point_location: communityLocation,
         radius: communityRadius * 1000, // Convert to meters
@@ -103,18 +105,17 @@ export default function CommunitySelectionPage() {
         toast.success("Community created!", {
           description: `You've successfully created the community "${communityName}"`,
         });
-        router.push("/communities");
+        router.push("/communities"); // Consider redirecting to dashboard or communities list
       }
     } catch (error) {
       toast.error("Error", {
         description: `Error: ${error}: Failed to create community. Please try again.`,
       });
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // End loading
     }
   };
 
-  // Get user's location when switching to create tab
   const handleTabChange = async (tab: string) => {
     setTab(tab);
     if (tab === "create" && !userLocation) {
@@ -129,7 +130,7 @@ export default function CommunitySelectionPage() {
             description:
               "Please enable location access in your browser settings to create a community.",
           });
-          setIsLoadingLocation(false); // Stop loading even if denied
+          setIsLoadingLocation(false);
           return;
         }
 
@@ -149,7 +150,6 @@ export default function CommunitySelectionPage() {
             setUserLocation(newLocation);
             setCommunityLocation(newLocation);
 
-            // Get address for the location
             getReverseGeocode(newLocation.lat, newLocation.lng).then(
               (address) => setCommunityAddress(address)
             );
@@ -161,12 +161,12 @@ export default function CommunitySelectionPage() {
               description:
                 "Could not get your location. You can still select a location manually on the map.",
             });
-            setIsLoadingLocation(false); // Stop loading on error
+            setIsLoadingLocation(false);
           }
         );
       } catch (error) {
         console.error("Permission error:", error);
-        setIsLoadingLocation(false); // Stop loading on permission error
+        setIsLoadingLocation(false);
       }
     }
   };
@@ -207,20 +207,39 @@ export default function CommunitySelectionPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  <CommunityMap
-                    joinMode={true}
-                    onSelectCommunity={setSelectedCommunity}
-                    selectedCommunity={selectedCommunity}
-                  />
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* List View */}
+                  <div className="order-2 md:order-1">
+                    <CommunityList
+                      onSelectCommunity={setSelectedCommunity}
+                      selectedCommunity={selectedCommunity}
+                    />
+                  </div>
+
+                  {/* Map View */}
+                  <div className="order-1 md:order-2">
+                    <CommunityMap
+                      joinMode={true}
+                      onSelectCommunity={setSelectedCommunity}
+                      selectedCommunity={selectedCommunity}
+                    />
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>
                 <Button
                   onClick={handleJoinCommunity}
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+                  disabled={!selectedCommunity || isJoining} // Disable if no community selected or already joining
                 >
-                  Join Selected Community
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    "Join Selected Community"
+                  )}
                 </Button>
               </CardFooter>
             </Card>
@@ -303,7 +322,14 @@ export default function CommunitySelectionPage() {
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Creating..." : "Create Community"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Community"
+                  )}
                 </Button>
               </CardFooter>
             </Card>
