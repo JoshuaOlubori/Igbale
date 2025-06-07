@@ -95,9 +95,10 @@ export default function NewPickupPage() {
   };
 
   const handleCaptureClick = () => {
-    if (imageFiles.length >= 3) {
+    // Only allow one image for this form
+    if (imageFiles.length >= 1) {
       toast.warning("Maximum photos reached", {
-        description: "You can only upload 3 photos per trash report.",
+        description: "You can only upload 1 photo per trash report.",
       });
       return;
     }
@@ -108,79 +109,63 @@ export default function NewPickupPage() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const newFiles: File[] = [];
-    const newPreviews: string[] = [];
+    // We only care about the first file since we're limiting to 1
+    const file = files[0];
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error("Image too large", {
-          description: `"${file.name}" exceeds the 10MB limit.`,
-        });
-        continue; // Skip this file
-      }
-
-      if (imageFiles.length + newFiles.length < 3) {
-        newFiles.push(file);
-        newPreviews.push(URL.createObjectURL(file));
-      } else {
-        toast.warning("Maximum photos reached", {
-          description: "You can only upload 3 photos per trash report.",
-        });
-        break; // Stop adding files
-      }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Image too large", {
+        description: `"${file.name}" exceeds the 10MB limit.`,
+      });
+      event.target.value = ""; // Reset the input value
+      return;
     }
 
-    setImageFiles((prev) => [...prev, ...newFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    // Clear previous images and add only the new one
+    setImageFiles([file]);
+    setImagePreviews([URL.createObjectURL(file)]);
 
     // Reset the input value to allow selecting the same file again if needed
     event.target.value = "";
   };
 
   const removeImage = (index: number) => {
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    // Since we're only allowing one image, we clear everything
+    if (index === 0) {
+      setImageFiles([]);
+      setImagePreviews([]);
+    }
   };
 
-  // const convertFileToBase64 = (file: File): Promise<string> => {
-  //   return new Promise((resolve, reject) => {
-  //     const reader = new FileReader();
-  //     reader.readAsDataURL(file);
-  //     reader.onload = () => resolve(reader.result as string);
-  //     reader.onerror = (error) => reject(error);
-  //   });
-  // };
-  
   const convertFileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    // Validate file type before processing
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff', 'image/bmp'];
-    if (!validTypes.includes(file.type)) {
-      reject(new Error(`Unsupported file type: ${file.type}`));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Validate the result format
-      if (!result || !result.startsWith('data:image/')) {
-        reject(new Error('Invalid file format'));
+    return new Promise((resolve, reject) => {
+      // Validate file type before processing
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff', 'image/bmp'];
+      if (!validTypes.includes(file.type)) {
+        reject(new Error(`Unsupported file type: ${file.type}`));
         return;
       }
-      resolve(result);
-    };
-    reader.onerror = (error) => reject(error);
-  });
-};
+
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Validate the result format
+        if (!result || !result.startsWith('data:image/')) {
+          reject(new Error('Invalid file format'));
+          return;
+        }
+        resolve(result);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleSubmitImages = async () => {
-    if (imageFiles.length < 3) {
-      toast.warning("Not enough photos", {
-        description: "Please take 3 photos of the trash from different angles.",
+    // Require exactly 1 photo
+    if (imageFiles.length < 1) {
+      toast.warning("Missing photo", {
+        description: "Please take 1 photo of the trash.",
       });
       return;
     }
@@ -200,10 +185,8 @@ export default function NewPickupPage() {
     setStep("analysis"); // Move to analysis step immediately after starting upload
 
     try {
-      // Convert all image files to Base64
-      const base64Images = await Promise.all(
-        imageFiles.map((file) => convertFileToBase64(file))
-      );
+      // Convert the single image file to Base64
+      const base64Image = await convertFileToBase64(imageFiles[0]);
 
       // Make API call to /api/scan
       const response = await fetch("/api/scan", {
@@ -212,7 +195,7 @@ export default function NewPickupPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          images: base64Images,
+          images: [base64Image], // Send as an array containing the single image
           latitude: currentLocation.lat,
           longitude: currentLocation.lng,
         }),
@@ -230,7 +213,7 @@ export default function NewPickupPage() {
       setIsAnalyzing(false); // Analysis is done (as it's part of the API response)
       setAnalysisDone(true);
     } catch (error: any) // eslint-disable-line @typescript-eslint/no-explicit-any
-    { 
+    {
       console.error("Error during image submission or analysis:", error);
       toast.error("Submission Failed", {
         description:
@@ -244,62 +227,30 @@ export default function NewPickupPage() {
     }
   };
 
-  // const handleConfirm = async () => {
-  //   if (!result) {
-  //     toast.error("No analysis result", {
-  //       description: "Please submit photos and analyze trash first.",
-  //     });
-  //     return;
-  //   }
-
-  //   setStep("confirm");
-
-  //   try {
-  //     // Here, you would make another API call to actually record the pickup
-  //     // This is a placeholder for the actual backend call to save the pickup
-  //     // For now, we simulate success and redirect
-  //     await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
-      
-  //     toast.success("Pickup recorded!", {
-  //       description: `You've earned ${result.points} points for this collection.`,
-  //     });
-  //     router.push("/dashboard");
-  //   } catch (error: any) // eslint-disable-line @typescript-eslint/no-explicit-any
-  //   {
-  //     console.error("Error confirming pickup:", error);
-  //     toast.error("Confirmation Failed", {
-  //       description:
-  //         error.message || "An error occurred while confirming pickup.",
-  //     });
-  //     setStep("analysis"); // Go back to analysis step on error
-  //   }
-  // };
+  // Removed handleConfirm as it's not part of this page's flow anymore
 
   return (
     <div className="container max-w-md py-8">
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">Register Trash</h1>
-        <p className="text-muted-foreground">
-          Take photos of the trash you&apos;ve found
-        </p>
+        <p className="text-muted-foreground">Take a photo of the trash you&apos;ve found</p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>
-              {step === "capture" && "Capture Photos"}
+              {step === "capture" && "Capture Photo"}
               {step === "analysis" && "Analyzing Trash"}
               {step === "confirm" && "Confirming Registration"}
             </CardTitle>
             {step === "capture" && (
-              <Badge variant="outline">{imageFiles.length}/3 photos</Badge>
+              <Badge variant="outline">{imageFiles.length}/1 photo</Badge>
             )}
           </div>
           <CardDescription>
-            {step === "capture" &&
-              "Take 3 photos of the trash from different angles"}
-            {step === "analysis" && "Our AI is analyzing your trash photos"}
+            {step === "capture" && "Take 1 photo of the trash."}
+            {step === "analysis" && "Our AI is analyzing your trash photo"}
             {step === "confirm" && "Processing your trash registration"}
           </CardDescription>
         </CardHeader>
@@ -311,41 +262,40 @@ export default function NewPickupPage() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                 accept="image/jpeg,image/jpg,image/png,image/gif,image/webp, image/heic, image/tiff, image/bmp" // More specific
-                multiple
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp, image/heic, image/tiff, image/bmp" // More specific
+                // Removed 'multiple' attribute
                 className="hidden"
               />
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((index) => (
-                  <div
-                    key={index}
-                    className="relative aspect-square rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden bg-muted/30"
-                  >
-                    {imagePreviews[index] ? (
-                      <>
-                        <Image
-                          width={500}
-                          height={500}
-                          src={imagePreviews[index]}
-                          alt={`Trash photo ${index + 1}`}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </>
-                    ) : (
-                      <span className="text-2xl text-muted-foreground font-light">
-                        {index + 1}
-                      </span>
-                    )}
-                  </div>
-                ))}
+              {/* Only render one image slot */}
+              <div className="flex justify-center"> {/* Centering the single image slot */}
+                <div
+                  key={0} // Fixed key for the single slot
+                  className="relative aspect-square rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden bg-muted/30 w-full max-w-sm" // Increased size for single image
+                >
+                  {imagePreviews[0] ? ( // Check for the first (and only) preview
+                    <>
+                      <Image
+                        width={500}
+                        height={500}
+                        src={imagePreviews[0]}
+                        alt={`Trash photo 1`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                        onClick={() => removeImage(0)} // Always remove the first (and only)
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-2xl text-muted-foreground font-light">
+                      1
+                    </span>
+                  )}
+                </div>
               </div>
 
               <Button
@@ -384,28 +334,29 @@ export default function NewPickupPage() {
 
           {step === "analysis" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-3 gap-2">
-                {imagePreviews.map((image, index) => (
+              {/* Only render one image for analysis preview */}
+              <div className="flex justify-center">
+                {imagePreviews[0] && (
                   <motion.div
-                    key={index}
+                    key={0}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: index * 0.1 }}
-                    className="aspect-square rounded-md overflow-hidden"
+                    transition={{ duration: 0.2, delay: 0 }}
+                    className="aspect-square rounded-md overflow-hidden w-full max-w-sm" // Adjusted size
                   >
                     <Image
-                      src={image}
-                      alt={`Trash photo ${index + 1}`}
+                      src={imagePreviews[0]}
+                      alt={`Trash photo 1`}
                       width={500}
                       height={500}
                       className="w-full h-full object-cover"
                     />
                   </motion.div>
-                ))}
+                )}
               </div>
 
               <div className="space-y-2 text-center py-4">
-                {isAnalyzing || isUploading ? ( // Show loader while analyzing or uploading
+                {isAnalyzing || isUploading ? (
                   <>
                     <div className="flex justify-center mb-2">
                       <div className="relative h-16 w-16">
@@ -469,7 +420,7 @@ export default function NewPickupPage() {
           {step === "capture" && (
             <Button
               onClick={handleSubmitImages}
-              disabled={imageFiles.length < 3 || isUploading || isGettingLocation || !currentLocation}
+              disabled={imageFiles.length < 1 || isUploading || isGettingLocation || !currentLocation} // Changed to < 1
               className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
             >
               {isUploading ? (
@@ -480,20 +431,19 @@ export default function NewPickupPage() {
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Submit Photos for Analysis
+                  Submit Photo for Analysis
                 </>
               )}
             </Button>
           )}
 
           {step === "analysis" && (
-            
             <Button
-              onClick={() => router.push('/collect')}
+              onClick={() => router.push('/collect')} // This button will now lead to the collect route
               disabled={isAnalyzing || !analysisDone || !result}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
             >
-             Confirm trash pickup
+              Confirm trash pickup
             </Button>
           )}
         </CardFooter>

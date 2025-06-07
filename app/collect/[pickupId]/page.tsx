@@ -12,7 +12,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, Upload, X, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Camera,
+  Loader2,
+  Upload,
+  X,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 // import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +38,9 @@ interface CollectPickupPageProps {
   }>;
 }
 
-export default function CollectPickupPage({ params: paramsPromise }: CollectPickupPageProps) {
+export default function CollectPickupPage({
+  params: paramsPromise,
+}: CollectPickupPageProps) {
   const params = use(paramsPromise);
   const router = useRouter();
   const { pickupId } = params;
@@ -43,7 +52,8 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<CleanupVerificationResult | null>(null);
+  const [verificationResult, setVerificationResult] =
+    useState<CleanupVerificationResult | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,9 +64,9 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
   }, [imagePreviews]);
 
   const handleCaptureClick = () => {
-    if (imageFiles.length >= 3) {
+    if (imageFiles.length >= 1) {
       toast.warning("Maximum photos reached", {
-        description: "You can only upload 3 photos for cleanup verification.",
+        description: "You can only upload 1 photo for cleanup verification.",
       });
       return;
     }
@@ -81,12 +91,12 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         continue;
       }
 
-      if (imageFiles.length + newFiles.length < 3) {
+      if (imageFiles.length + newFiles.length < 1) {
         newFiles.push(file);
         newPreviews.push(URL.createObjectURL(file));
       } else {
         toast.warning("Maximum photos reached", {
-          description: "You can only upload 3 photos for cleanup verification.",
+          description: "You can only upload 1 photo for cleanup verification.",
         });
         break;
       }
@@ -113,22 +123,14 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
   };
 
   const handleSubmitImages = async () => {
-    if (imageFiles.length < 3) {
-      toast.warning("Not enough photos", {
-        description: "Please take 3 photos of the cleaned area from different angles.",
-      });
-      return;
-    }
-
-    if (!pickupId) {
-      toast.error("Pickup ID missing", {
-        description: "Could not identify which trash report to verify. Please navigate from the map.",
+    if (imageFiles.length < 1) {
+      toast.warning("Photo required", {
+        description: "Please take 1 photo of the cleaned area.",
       });
       return;
     }
 
     setIsUploading(true);
-    setIsVerifying(true);
     setStep("verifying");
 
     try {
@@ -152,14 +154,21 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         const apiResult: CleanupVerificationResult = await response.json();
         setVerificationResult(apiResult);
 
-        if (!response.ok || (apiResult.confidence && apiResult.confidence <= 50)) {
+        if (
+          !response.ok ||
+          (apiResult.confidence && apiResult.confidence <= 50)
+        ) {
           toast.error("Cleanup Not Confirmed", {
-            description: apiResult.message || "The AI could not confirm that the area has been cleaned. Please try again.",
+            description:
+              apiResult.message ||
+              "The AI could not confirm that the area has been cleaned. Please try again.",
           });
           setStep("result");
         } else {
           toast.success("Cleanup Confirmed!", {
-            description: apiResult.message || "Great job! Your cleanup has been successfully verified.",
+            description:
+              apiResult.message ||
+              "Great job! Your cleanup has been successfully verified.",
           });
           router.push("/dashboard");
         }
@@ -167,11 +176,13 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         // If the response is not JSON, it's likely an HTML error page
         const errorText = await response.text();
         console.error("Server returned non-JSON response:", errorText);
-        throw new Error("Received unexpected response from server. It might be an HTML error page. Check server logs for details.");
+        throw new Error(
+          "Received unexpected response from server. It might be an HTML error page. Check server logs for details."
+        );
       }
-
-    } catch (error: any)  // eslint-disable-line @typescript-eslint/no-explicit-any
-    {
+    } catch (
+      error: any // eslint-disable-line @typescript-eslint/no-explicit-any
+    ) {
       console.error("Error during image submission or verification:", error);
       toast.error("Verification Failed", {
         description:
@@ -197,7 +208,7 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">Confirm Cleanup</h1>
         <p className="text-muted-foreground">
-          Take photos of the cleaned area to verify your work for Pickup ID: {pickupId}
+          Take a photo of the cleaned area to verify your work
         </p>
       </div>
 
@@ -205,18 +216,17 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>
-              {step === "capture" && "Capture Photos"}
+              {step === "capture" && "Capture Photo"}
               {step === "verifying" && "Verifying Cleanup"}
               {step === "result" && "Verification Result"}
             </CardTitle>
             {step === "capture" && (
-              <Badge variant="outline">{imageFiles.length}/3 photos</Badge>
+              <Badge variant="outline">{imageFiles.length}/1 photo</Badge>
             )}
           </div>
           <CardDescription>
-            {step === "capture" &&
-              "Take 3 photos of the cleaned area from different angles"}
-            {step === "verifying" && "Our AI is analyzing your cleanup photos"}
+            {step === "capture" && "Take 1 photo of the cleaned area."}
+            {step === "verifying" && "Our AI is analyzing your cleanup photo"}
             {step === "result" && "Review the AI's assessment of your cleanup"}
           </CardDescription>
         </CardHeader>
@@ -229,40 +239,34 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 accept="image/*"
-                multiple
                 className="hidden"
               />
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((index) => (
-                  <div
-                    key={index}
-                    className="relative aspect-square rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden bg-muted/30"
-                  >
-                    {imagePreviews[index] ? (
-                      <>
-                        <Image
-                          width={500}
-                          height={500}
-                          src={imagePreviews[index]}
-                          alt={`Clean photo ${index + 1}`}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </>
-                    ) : (
-                      <span className="text-2xl text-muted-foreground font-light">
-                        {index + 1}
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div className="flex justify-center">
+                <div className="relative aspect-square rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center overflow-hidden bg-muted/30 w-full max-w-sm">
+                  {imagePreviews[0] ? (
+                    <>
+                      <Image
+                        width={500}
+                        height={500}
+                        src={imagePreviews[0]}
+                        alt="Clean photo"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                        onClick={() => removeImage(0)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-2xl text-muted-foreground font-light">
+                      📷
+                    </span>
+                  )}
+                </div>
               </div>
 
               <Button
@@ -271,7 +275,7 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                 className="w-full flex items-center gap-2"
               >
                 <Camera className="h-4 w-4" />
-                Take Photo of Cleaned Area
+                Take Photo
               </Button>
             </div>
           )}
@@ -306,7 +310,10 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
-                        <svg className="h-16 w-16 -rotate-90" viewBox="0 0 100 100">
+                        <svg
+                          className="h-16 w-16 -rotate-90"
+                          viewBox="0 0 100 100"
+                        >
                           <circle
                             className="text-muted stroke-current"
                             strokeWidth="8"
@@ -334,7 +341,9 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                         {verificationResult.confidence > 50 ? (
                           <div className="flex flex-col items-center justify-center text-green-600 dark:text-green-400">
                             <CheckCircle2 className="h-16 w-16 mb-4" />
-                            <h3 className="text-2xl font-semibold">Cleanup Confirmed!</h3>
+                            <h3 className="text-2xl font-semibold">
+                              Cleanup Confirmed!
+                            </h3>
                             <p className="text-lg text-muted-foreground">
                               AI Confidence: {verificationResult.confidence}%
                             </p>
@@ -345,12 +354,15 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                         ) : (
                           <div className="flex flex-col items-center justify-center text-red-600 dark:text-red-400">
                             <AlertCircle className="h-16 w-16 mb-4" />
-                            <h3 className="text-2xl font-semibold">Cleanup Not Confirmed</h3>
+                            <h3 className="text-2xl font-semibold">
+                              Cleanup Not Confirmed
+                            </h3>
                             <p className="text-lg text-muted-foreground">
                               AI Confidence: {verificationResult.confidence}%
                             </p>
                             <p className="text-sm text-muted-foreground mt-2">
-                              It seems the AI is not confident the area has been fully cleaned.
+                              It seems the AI is not confident the area has been
+                              fully cleaned.
                             </p>
                           </div>
                         )}
@@ -375,15 +387,19 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
                   </div>
                 )}
                 <h3 className="mt-4 text-xl font-medium">
-                  {verificationResult.confidence > 50 ? "Cleanup Confirmed!" : "Cleanup Not Confirmed"}
+                  {verificationResult.confidence > 50
+                    ? "Cleanup Confirmed!"
+                    : "Cleanup Not Confirmed"}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-2">
                   AI Confidence: {verificationResult.confidence}%
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {verificationResult.confidence > 50
-                    ? verificationResult.message || "Great job! Your cleanup has been successfully verified."
-                    : verificationResult.message || "The AI could not confirm that the area has been cleaned. Please try again."}
+                    ? verificationResult.message ||
+                      "Great job! Your cleanup has been successfully verified."
+                    : verificationResult.message ||
+                      "The AI could not confirm that the area has been cleaned. Please try again."}
                 </p>
               </div>
             </div>
@@ -394,7 +410,7 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
           {step === "capture" && (
             <Button
               onClick={handleSubmitImages}
-              disabled={imageFiles.length < 3 || isUploading || isVerifying}
+              disabled={imageFiles.length < 1 || isUploading || isVerifying}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600"
             >
               {isUploading || isVerifying ? (
@@ -405,31 +421,34 @@ export default function CollectPickupPage({ params: paramsPromise }: CollectPick
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Submit Photos for Verification
+                  Submit Photo for Verification
                 </>
               )}
             </Button>
           )}
 
-          {step === "result" && verificationResult && verificationResult.confidence <= 50 && (
-            <Button
-              onClick={handleTryAgain}
-              className="w-full bg-gradient-to-r from-orange-600 to-yellow-500 hover:from-orange-700 hover:to-yellow-600"
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              Try Again
-            </Button>
-          )}
+          {step === "result" &&
+            verificationResult &&
+            verificationResult.confidence <= 50 && (
+              <Button
+                onClick={handleTryAgain}
+                className="w-full bg-gradient-to-r from-orange-600 to-yellow-500 hover:from-orange-700 hover:to-yellow-600"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Try Again
+              </Button>
+            )}
 
-          {step === "result" && verificationResult && verificationResult.confidence > 50 && (
-             <Button
-             onClick={() => router.push('/dashboard')}
-             className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
-           >
-            Go to Dashboard
-           </Button>
-          )}
-
+          {step === "result" &&
+            verificationResult &&
+            verificationResult.confidence > 50 && (
+              <Button
+                onClick={() => router.push("/dashboard")}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
+              >
+                Go to Dashboard
+              </Button>
+            )}
         </CardFooter>
       </Card>
     </div>

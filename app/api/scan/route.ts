@@ -8,7 +8,7 @@ import { createTrashReport } from "@/server/actions/scan";
 import { env } from "@/data/env/client";
 
 // Get max image size from env or default to 4.5MB
-const MAX_IMAGE_SIZE_MB = Number(env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || "4.5");
+const MAX_IMAGE_SIZE_MB = Number(env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || "3.8");
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 export async function POST(request: NextRequest) {

@@ -2,8 +2,9 @@
 import { GoogleGenAI, createUserContent } from "@google/genai";
 import { env } from "@/data/env/server";
 import { db } from "@/drizzle/db"; // Assuming you have your Drizzle DB instance exported as 'db'
-import { ActivitiesTable, 
-//  PickupsTable 
+import {
+  ActivitiesTable,
+  //  PickupsTable
 } from "@/drizzle/schema"; // Import your schema tables
 import { desc, eq } from "drizzle-orm"; // Import desc and eq for querying
 
@@ -19,7 +20,9 @@ export async function analyzeTrashImages(
 ): Promise<TrashAnalysisResult> {
   try {
     const model = "gemini-2.0-flash";
-    const prompt = `Analyze the provided images of trash. Based on the visual information, estimate the total weight of the trash in kilograms (as a decimal number, e.g., 2.5) and identify the primary type of trash (e.g., "Mixed plastics", "Organic waste", "Paper and cardboard", "Glass bottles", "Metal cans", "Electronics", "General waste").
+    const prompt = `Analyze the provided image of trash. Based on the visual information, estimate the total weight of the trash in kilograms (as a decimal number, e.g., 2.5) and identify the primary type of trash (e.g., "Mixed plastics", "Organic waste", "Paper and cardboard", "Glass bottles", "Metal cans", "Electronics", "General waste").
+
+Please be precise in your estimation and consider the visible quantity and density of the trash.
 
 Respond in JSON format only, with the following schema:
 {
@@ -42,13 +45,13 @@ Respond in JSON format only, with the following schema:
       };
     });
 
-    // Fix the content structure for generateContent
+    // 6. Call AI model with single or multiple images
     const result = await ai.models.generateContent({
       model,
       contents: createUserContent([{ text: prompt }, ...imageParts]),
     });
 
-    const text = result.text
+    const text = result.text;
     if (!text) {
       throw new Error("AI model returned empty response");
     }
@@ -97,22 +100,20 @@ Respond in JSON format only, with the following schema:
   }
 }
 
-
-
 async function fetchImageAsBase64(imageUrl: string): Promise<string> {
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.statusText}`);
     }
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString('base64');
-    
+    const base64 = buffer.toString("base64");
+
     // Determine MIME type from response headers or URL extension
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
-    
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
     console.error(`Error fetching image from ${imageUrl}:`, error);
@@ -180,23 +181,19 @@ export async function verifyTrashCleanup(
 
     // 3. Prepare AI model and prompt
     const model = "gemini-2.0-flash";
-    const prompt = `Analyze the provided images to determine if an area has been cleaned. You will see two sets of images:
+    const prompt = `Analyze the provided images to determine if an area has been cleaned. You will see a BEFORE image showing the area with trash/litter, and an AFTER image showing the same area after alleged cleanup.
 
-1. BEFORE images: Show the area with trash/litter before cleanup
-2. AFTER images: Show the same area after alleged cleanup
-
-Compare these images and provide a confidence score from 1 to 100:
+Compare these images and provide a confidence score from 1 to 100 indicating how confident you are that the area has been properly cleaned:
 - 100: Extremely confident the area has been thoroughly cleaned
 - 75-99: Very confident significant cleaning occurred
 - 50-74: Moderately confident some cleaning occurred
 - 25-49: Slight evidence of cleaning
 - 1-24: Little to no evidence of cleaning
 
-Consider factors like:
-- Reduction in visible trash/litter
-- Cleanliness of the ground/surfaces
-- Overall tidiness improvement
-- Consistency between before and after scenes
+Focus on:
+- Visible reduction in trash/litter
+- Overall cleanliness improvement
+- Matching area/perspective in before/after images
 
 It is important that you respond in JSON format only:
 {
@@ -232,13 +229,13 @@ It is important that you respond in JSON format only:
       };
     });
 
-    // 5. Create content for AI model
+    // 5. Create content for AI model with emphasis on single before/after comparison
     const contentParts = [
       { text: prompt },
-      { text: "BEFORE images (original trash report):" },
-      ...beforeImageParts,
-      { text: "AFTER images (claimed cleanup):" },
-      ...afterImageParts,
+      { text: "BEFORE image:" },
+      beforeImageParts[0], // Take first image from before
+      { text: "AFTER image:" },
+      afterImageParts[0], // Take first image from after
     ];
 
     // 6. Call AI model
@@ -249,7 +246,9 @@ It is important that you respond in JSON format only:
 
     const text = result.text;
     if (!text) {
-      throw new Error("AI model returned empty response for cleanup verification");
+      throw new Error(
+        "AI model returned empty response for cleanup verification"
+      );
     }
 
     // 7. Extract and parse JSON response
@@ -258,13 +257,18 @@ It is important that you respond in JSON format only:
       text.match(/\{[\s\S]*?\}/);
 
     if (!jsonMatch || !jsonMatch[1]) {
-      console.error("Could not find valid JSON in verification response:", text);
-      throw new Error("Invalid response format from AI model for cleanup verification");
+      console.error(
+        "Could not find valid JSON in verification response:",
+        text
+      );
+      throw new Error(
+        "Invalid response format from AI model for cleanup verification"
+      );
     }
 
     const jsonString = jsonMatch[1];
     let parsedResult: { confidence: number };
-    
+
     try {
       parsedResult = JSON.parse(jsonString.trim());
     } catch (parseError) {
@@ -283,17 +287,24 @@ It is important that you respond in JSON format only:
       parsedResult.confidence < 1 ||
       parsedResult.confidence > 100
     ) {
-      console.error("Invalid AI confidence score format after parsing:", parsedResult);
-      throw new Error("AI verification result is missing a valid confidence score (1-100).");
+      console.error(
+        "Invalid AI confidence score format after parsing:",
+        parsedResult
+      );
+      throw new Error(
+        "AI verification result is missing a valid confidence score (1-100)."
+      );
     }
 
     return { confidence: parsedResult.confidence };
-
   } catch (error) {
     console.error("Error during AI trash cleanup verification:", error);
     return {
       confidence: 0,
-      error: error instanceof Error ? error.message : "Unknown error occurred during verification",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during verification",
     };
   }
 }

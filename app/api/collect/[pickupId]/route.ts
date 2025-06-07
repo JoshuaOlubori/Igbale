@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { env } from "@/data/env/client";
 
 // Get max image size from env or default to 4.5MB
-const MAX_IMAGE_SIZE_MB = Number(env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || "4.5");
+const MAX_IMAGE_SIZE_MB = Number(env.NEXT_PUBLIC_MAX_IMAGE_SIZE_MB || "3.8");
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 export async function POST(
@@ -56,28 +56,27 @@ export async function POST(
     }
 
     // Declare validatedImages here to ensure its scope covers the subsequent loop and checks
-    const validatedImages = base64Images.filter((image) => {
-      // Fix: Use a correct regex literal for the match method.
-      // The double backslash was causing the 'not callable' error.
-      return (
-        typeof image === "string" &&
-        image.match(/^data:image\/(jpeg|png|gif|webp|heic|heif|jpg|tiff|bmp);base64,/i)
-      );
+    
+ // More comprehensive validation with logging
+    const validatedImages = base64Images.filter((image, index) => {
+      if (typeof image !== "string") {
+        console.error(`Image ${index} is not a string:`, typeof image);
+        return false;
+      }
+
+      // Check the format
+      const formatMatch = /^data:image\/([a-zA-Z+]+);base64,/.exec(image);
+      if (!formatMatch) {
+        console.error(`Image ${index} doesn't match expected format. Starts with:`, image.substring(0, 50));
+        return false;
+      }
+
+      console.log(`Image ${index} format:`, formatMatch[1]);
+      return true;
     });
 
-    if (validatedImages.length === 0) {
-      return NextResponse.json(
-        { error: "No valid images provided." },
-        { status: 400 }
-      );
-    }
+      console.log(`Validated ${validatedImages.length} out of ${base64Images.length} images`);
 
-    if (validatedImages.length > 3) {
-      return NextResponse.json(
-        { error: "Maximum 3 images allowed." },
-        { status: 400 }
-      );
-    }
 
     const processedImages: string[] = [];
     for (const base64Image of validatedImages) {
