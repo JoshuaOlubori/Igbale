@@ -34,12 +34,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
     // Validate image format and create filtered array
     const validatedImages = base64Images.filter((image) => {
       return (
-        typeof image === "string" &&
-        image.match(/^data:image\/(jpeg|png|gif|webp);base64,/)
+      typeof image === "string" &&
+      image.match(/^data:image\/(jpeg|png|gif|webp|heic|heif|jpg|tiff|bmp);base64,/i)
       );
     });
 
