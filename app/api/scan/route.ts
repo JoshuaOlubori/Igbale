@@ -15,8 +15,16 @@ export async function POST(request: NextRequest) {
   try {
     const { images: base64Images, latitude, longitude } = await request.json();
 
-    // Add validation for coordinates
+    console.log("Received request with:", {
+      imageCount: base64Images?.length,
+      latitude,
+      longitude,
+      firstImagePreview: base64Images?.[0]?.substring(0, 50) + "..." // Log first 50 chars
+    });
+
+   // Add validation for coordinates
     if (typeof latitude !== "number" || typeof longitude !== "number") {
+      console.error("Invalid coordinates:", { latitude, longitude });
       return NextResponse.json(
         { error: "Invalid location coordinates." },
         { status: 400 }
@@ -24,27 +32,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate images before processing
-    if (
-      !base64Images ||
-      !Array.isArray(base64Images) ||
-      base64Images.length === 0
-    ) {
+     // Validate images before processing
+    if (!base64Images || !Array.isArray(base64Images) || base64Images.length === 0) {
+      console.error("No images provided");
       return NextResponse.json(
         { error: "No images provided." },
         { status: 400 }
       );
     }
     // Validate image format and create filtered array
-    const validatedImages = base64Images.filter((image) => {
-      return (
-      typeof image === "string" &&
-      image.match(/^data:image\/(jpeg|png|gif|webp|heic|heif|jpg|tiff|bmp);base64,/i)
-      );
+    // const validatedImages = base64Images.filter((image) => {
+    //   return (
+    //   typeof image === "string" &&
+    //   image.match(/^data:image\/(jpeg|png|gif|webp|heic|heif|jpg|tiff|bmp);base64,/i)
+    //   );
+    // });
+
+ // More comprehensive validation with logging
+    const validatedImages = base64Images.filter((image, index) => {
+      if (typeof image !== "string") {
+        console.error(`Image ${index} is not a string:`, typeof image);
+        return false;
+      }
+
+      // Check the format
+      const formatMatch = /^data:image\/([a-zA-Z+]+);base64,/.exec(image);
+      if (!formatMatch) {
+        console.error(`Image ${index} doesn't match expected format. Starts with:`, image.substring(0, 50));
+        return false;
+      }
+
+      console.log(`Image ${index} format:`, formatMatch[1]);
+      return true;
     });
 
-    if (validatedImages.length === 0) {
+     console.log(`Validated ${validatedImages.length} out of ${base64Images.length} images`);
+
+  if (validatedImages.length === 0) {
       return NextResponse.json(
-        { error: "No valid images provided." },
+        { error: "No valid images provided. Please ensure images are in JPEG, PNG, GIF, or WebP format." },
         { status: 400 }
       );
     }
@@ -132,8 +158,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error in /api/scan route handler:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred.";
+    
+    // More specific error handling
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body." },
+        { status: 400 }
+      );
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
     return NextResponse.json(
       { error: `Failed to process trash registration: ${errorMessage}` },
       { status: 500 }

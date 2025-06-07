@@ -145,15 +145,38 @@ export default function NewPickupPage() {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // const convertFileToBase64 = (file: File): Promise<string> => {
+  //   return new Promise((resolve, reject) => {
+  //     const reader = new FileReader();
+  //     reader.readAsDataURL(file);
+  //     reader.onload = () => resolve(reader.result as string);
+  //     reader.onerror = (error) => reject(error);
+  //   });
+  // };
+  
   const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
+  return new Promise((resolve, reject) => {
+    // Validate file type before processing
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/tiff', 'image/bmp'];
+    if (!validTypes.includes(file.type)) {
+      reject(new Error(`Unsupported file type: ${file.type}`));
+      return;
+    }
 
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Validate the result format
+      if (!result || !result.startsWith('data:image/')) {
+        reject(new Error('Invalid file format'));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
   const handleSubmitImages = async () => {
     if (imageFiles.length < 3) {
       toast.warning("Not enough photos", {
@@ -288,7 +311,7 @@ export default function NewPickupPage() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/*"
+                 accept="image/jpeg,image/jpg,image/png,image/gif,image/webp, image/heic, image/tiff, image/bmp" // More specific
                 multiple
                 className="hidden"
               />
