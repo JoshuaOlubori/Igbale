@@ -18,6 +18,7 @@ import { useState } from "react";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 
+
 export default function Navigation() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function Navigation() {
     { title: "Leaderboard", href: "/leaderboard" },
     { title: "Dashboard", href: "/dashboard" },
     { title: "Communities", href: "/communities" },
+    {title: "About", href: "/about" },
   ];
 
   return (
