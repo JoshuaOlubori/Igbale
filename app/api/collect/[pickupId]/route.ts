@@ -61,7 +61,7 @@ export async function POST(
       // The double backslash was causing the 'not callable' error.
       return (
         typeof image === "string" &&
-        image.match(/^data:image\/(jpeg|png|gif|webp);base64,/)
+        image.match(/^data:image\/(jpeg|png|gif|webp|heic|heif|jpg|tiff|bmp);base64,/i)
       );
     });
 
